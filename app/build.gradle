@@ -22,10 +22,20 @@ android {
         buildConfig true
     }
 
+    signingConfigs {
+        release {
+            storeFile     file("${rootProject.projectDir}/hotplayer-release.jks")
+            storePassword System.getenv("STORE_PASSWORD") ?: "hotplayer2024"
+            keyAlias      System.getenv("KEY_ALIAS")      ?: "hotplayer"
+            keyPassword   System.getenv("KEY_PASSWORD")   ?: "hotplayer2024"
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
