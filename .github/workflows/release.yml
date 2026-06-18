@@ -27,14 +27,17 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Restore le keystore original (même signature que les 400 appareils installés)
       - name: Restore keystore
         run: |
-          mkdir -p $HOME/.android
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/.android/debug.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/hotplayer.keystore
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
+        env:
+          HOTPLAYER_KEYSTORE: /tmp/hotplayer.keystore
+          STORE_PASSWORD:     android
+          KEY_ALIAS:          androiddebugkey
+          KEY_PASSWORD:       android
 
       - name: Extract version name
         id: ver

@@ -22,10 +22,24 @@ android {
         buildConfig true
     }
 
+    signingConfigs {
+        debug {
+            def ks = System.getenv("HOTPLAYER_KEYSTORE") ?: "${System.getProperty('user.home')}/.android/debug.keystore"
+            storeFile     file(ks)
+            storePassword System.getenv("STORE_PASSWORD") ?: "android"
+            keyAlias      System.getenv("KEY_ALIAS")      ?: "androiddebugkey"
+            keyPassword   System.getenv("KEY_PASSWORD")   ?: "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
 
