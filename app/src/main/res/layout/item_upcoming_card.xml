@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="195dp"
+    android:layout_height="115dp"
+    android:layout_marginEnd="12dp"
+    android:focusable="true"
+    android:clickable="true"
+    android:background="@drawable/bg_upcoming_card">
+
+    <!-- Blue left accent bar -->
+    <View
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:background="#3d7eff"/>
+
+    <!-- Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:paddingStart="14dp">
+
+        <!-- Time badge + league -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#3d7eff"
+                android:paddingHorizontal="5dp"
+                android:paddingVertical="2dp"
+                android:background="#1a3d7eff"
+                android:layout_marginEnd="6dp"
+                android:text="20:45"/>
+
+            <TextView
+                android:id="@+id/tvLeagueName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="10sp"
+                android:textColor="#4a5670"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+        </LinearLayout>
+
+        <!-- Home team -->
+        <TextView
+            android:id="@+id/tvHomeTeam"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#e2e8f0"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <!-- VS separator -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="2dp"
+            android:text="vs"
+            android:textSize="9sp"
+            android:textColor="#3d4a5c"/>
+
+        <!-- Away team -->
+        <TextView
+            android:id="@+id/tvAwayTeam"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#94a3b8"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+    </LinearLayout>
+
+    <!-- Focus border -->
+    <View
+        android:id="@+id/viewFocusBorder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_sport_card_focused"
+        android:visibility="gone"/>
+</FrameLayout>

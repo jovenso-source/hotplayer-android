@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_primary">#0b0d14</color>
+    <color name="bg_secondary">#10131c</color>
+    <color name="bg_tertiary">#131720</color>
+    <color name="bg_card">#131720</color>
+    <color name="border">#1e2436</color>
+    <color name="text_primary">#e2e8f0</color>
+    <color name="text_secondary">#94a3b8</color>
+    <color name="text_tertiary">#555a6e</color>
+    <color name="accent">#ff4d00</color>
+    <color name="accent_light">#ff7340</color>
+    <color name="green">#22d3a5</color>
+    <color name="red">#ff4466</color>
+    <color name="red_bg">#1aff4466</color>
+    <color name="yellow">#f5c518</color>
+    <color name="blue">#4a9eff</color>
+    <color name="white">#FFFFFF</color>
+    <color name="blue_accent">#00A8FF</color>
+    <color name="blue_dark">#0d1f30</color>
+    <color name="channel_selected_bg">#1a2d40</color>
+</resources>

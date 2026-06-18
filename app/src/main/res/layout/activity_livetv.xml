@@ -1,0 +1,604 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0E1122">
+
+    <!-- ══════════ 3-COLUMN LAYOUT ══════════ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <!-- ─── COL 1 : CATEGORIES (210dp) ─── -->
+        <LinearLayout
+            android:layout_width="210dp"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#191C2E">
+
+            <!-- Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingLeft="14dp"
+                android:paddingRight="12dp"
+                android:background="#13162A">
+
+                <TextView
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:gravity="center"
+                    android:text="◀"
+                    android:textSize="12sp"
+                    android:textColor="#94a3b8"
+                    android:background="@drawable/bg_nav_btn"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:text="Live TV's"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"/>
+            </LinearLayout>
+
+            <!-- Categories list -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCats"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:clipToPadding="false"
+                android:descendantFocusability="afterDescendants"/>
+
+            <!-- Channel count footer -->
+            <TextView
+                android:id="@+id/tvChannelCount"
+                android:layout_width="match_parent"
+                android:layout_height="34dp"
+                android:gravity="center"
+                android:textSize="11sp"
+                android:textColor="#4a5670"
+                android:background="#13162A"/>
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1E2138"/>
+
+        <!-- ─── COL 2 : CHANNELS (320dp) ─── -->
+        <LinearLayout
+            android:layout_width="320dp"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:background="#0F1224">
+
+            <!-- Header + search -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingLeft="14dp"
+                android:paddingRight="8dp"
+                android:background="#13162A">
+
+                <TextView
+                    android:id="@+id/tvCurrentCategory"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tous"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"/>
+
+                <TextView
+                    android:id="@+id/btnSearch"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:text="🔍"
+                    android:textSize="13sp"
+                    android:background="@drawable/bg_nav_btn"
+                    android:focusable="true"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"/>
+            </LinearLayout>
+
+            <!-- Search bar -->
+            <LinearLayout
+                android:id="@+id/layoutSearchBar"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:background="#13162A"
+                android:visibility="gone">
+
+                <EditText
+                    android:id="@+id/etSearch"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:hint="Rechercher une chaîne..."
+                    android:textSize="12sp"
+                    android:textColor="#e2e8f0"
+                    android:textColorHint="#4a5670"
+                    android:background="@drawable/bg_search_field"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:inputType="text"
+                    android:imeOptions="actionSearch"
+                    android:singleLine="true"
+                    android:maxLines="1"/>
+
+                <TextView
+                    android:id="@+id/btnSearchClose"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:text="✕"
+                    android:textSize="12sp"
+                    android:textColor="#94a3b8"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/bg_nav_btn"
+                    android:focusable="true"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"/>
+            </LinearLayout>
+
+            <!-- Channels list -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvChannels"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:clipToPadding="false"
+                android:descendantFocusability="afterDescendants"/>
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#1E2138"/>
+
+        <!-- ─── COL 3 : PLAYER (fills remaining width) ─── -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="#0B0D1A">
+
+            <!-- Top bar with back button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical|end"
+                android:paddingRight="16dp"
+                android:background="#13162A">
+
+                <Button
+                    android:id="@+id/btnBack"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="✕"
+                    android:textSize="14sp"
+                    android:textColor="#94a3b8"
+                    android:backgroundTint="#1E2236"
+                    android:focusable="true"/>
+            </LinearLayout>
+
+            <!-- Player + EPG overlay — fills all remaining space -->
+            <FrameLayout
+                android:id="@+id/playerFrame"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#000000"
+                android:focusable="true"
+                android:focusableInTouchMode="false"
+                android:clickable="true">
+
+                <!-- Video surface -->
+                <androidx.media3.ui.PlayerView
+                    android:id="@+id/playerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:use_controller="false"
+                    app:resize_mode="fit"/>
+
+                <!-- Buffering spinner -->
+                <ProgressBar
+                    android:id="@+id/pbPlayerBuffering"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="#00A8FF"
+                    android:visibility="gone"/>
+
+                <!-- EPG loading (small, top-left) -->
+                <ProgressBar
+                    android:id="@+id/pbEpgLoading"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="top|start"
+                    android:layout_margin="12dp"
+                    android:indeterminateTint="#00A8FF"
+                    android:visibility="gone"/>
+
+                <!-- Focus hint (top-right) -->
+                <TextView
+                    android:id="@+id/tvPlayerHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|end"
+                    android:padding="10dp"
+                    android:text="⛶  OK → Plein écran"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:background="#AA000000"
+                    android:visibility="gone"/>
+
+                <!-- ── Bottom info overlay (gradient + program info) ── -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:orientation="vertical"
+                    android:paddingLeft="20dp"
+                    android:paddingRight="20dp"
+                    android:paddingTop="40dp"
+                    android:paddingBottom="16dp"
+                    android:background="@drawable/bg_player_gradient">
+
+                    <!-- Channel meta row: live dot + category + channel number -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="6dp">
+
+                        <View
+                            android:layout_width="7dp"
+                            android:layout_height="7dp"
+                            android:background="@drawable/bg_dot_green"
+                            android:layout_marginEnd="7dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="EN DIRECT"
+                            android:textSize="10sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF"
+                            android:background="@drawable/bg_live_badge"
+                            android:paddingLeft="5dp"
+                            android:paddingRight="5dp"
+                            android:paddingTop="2dp"
+                            android:paddingBottom="2dp"
+                            android:layout_marginEnd="8dp"/>
+
+                        <TextView
+                            android:id="@+id/tvPlayerCat"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textSize="12sp"
+                            android:textColor="#94a3b8"
+                            android:maxLines="1"
+                            android:ellipsize="end"/>
+
+                        <TextView
+                            android:id="@+id/tvPlayerNum"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#f5c518"
+                            android:background="@drawable/bg_num_badge"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingBottom="2dp"/>
+                    </LinearLayout>
+
+                    <!-- Channel name (always visible) -->
+                    <TextView
+                        android:id="@+id/tvPlayerName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Sélectionner une chaîne"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:maxLines="1"
+                        android:ellipsize="end"/>
+
+                    <!-- Hidden: used by observer for short EPG display (kept for binding) -->
+                    <TextView
+                        android:id="@+id/tvPlayerEpgNow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"/>
+
+                    <!-- ── EN COURS block ── -->
+                    <LinearLayout
+                        android:id="@+id/layoutEpgNow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="12dp"
+                        android:visibility="gone">
+
+                        <!-- Title row: badge + title + times -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="EN COURS"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:background="#00A8FF"
+                                android:paddingLeft="5dp"
+                                android:paddingRight="5dp"
+                                android:paddingTop="2dp"
+                                android:paddingBottom="2dp"
+                                android:layout_marginEnd="9dp"/>
+
+                            <TextView
+                                android:id="@+id/tvEpgNowTitle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:maxLines="1"
+                                android:ellipsize="end"/>
+
+                            <TextView
+                                android:id="@+id/tvEpgNowStart"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textSize="11sp"
+                                android:textColor="#94a3b8"
+                                android:fontFamily="monospace"
+                                android:layout_marginStart="8dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=" – "
+                                android:textSize="11sp"
+                                android:textColor="#4a5670"/>
+
+                            <TextView
+                                android:id="@+id/tvEpgNowEnd"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textSize="11sp"
+                                android:textColor="#94a3b8"
+                                android:fontFamily="monospace"/>
+                        </LinearLayout>
+
+                        <!-- Progress bar -->
+                        <ProgressBar
+                            android:id="@+id/pbEpgNow"
+                            android:layout_width="match_parent"
+                            android:layout_height="3dp"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:progress="0"
+                            android:max="100"
+                            android:progressTint="#00A8FF"
+                            android:progressBackgroundTint="#2A3050"
+                            android:layout_marginTop="8dp"
+                            android:layout_marginBottom="6dp"/>
+
+                        <!-- Description -->
+                        <TextView
+                            android:id="@+id/tvEpgNowDesc"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="12sp"
+                            android:textColor="#94a3b8"
+                            android:maxLines="2"
+                            android:ellipsize="end"
+                            android:lineSpacingMultiplier="1.4"/>
+                    </LinearLayout>
+
+                    <!-- EPG not available -->
+                    <TextView
+                        android:id="@+id/tvEpgEmpty"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="EPG non disponible"
+                        android:textSize="12sp"
+                        android:textColor="#3d4a5c"/>
+
+                    <!-- Divider between now and next programs -->
+                    <View
+                        android:id="@+id/dividerEpg"
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#2A3050"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone"/>
+
+                    <!-- NEXT 1 -->
+                    <LinearLayout
+                        android:id="@+id/layoutEpgNext1"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="4dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="▶ "
+                            android:textSize="10sp"
+                            android:textColor="#4a5670"/>
+
+                        <TextView
+                            android:id="@+id/tvEpgNext1Title"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textSize="12sp"
+                            android:textColor="#94a3b8"
+                            android:maxLines="1"
+                            android:ellipsize="end"/>
+
+                        <TextView
+                            android:id="@+id/tvEpgNext1Start"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#4a5670"
+                            android:fontFamily="monospace"
+                            android:layout_marginStart="8dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=" – "
+                            android:textSize="11sp"
+                            android:textColor="#4a5670"/>
+
+                        <TextView
+                            android:id="@+id/tvEpgNext1End"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#4a5670"
+                            android:fontFamily="monospace"/>
+                    </LinearLayout>
+
+                    <!-- NEXT 2 -->
+                    <LinearLayout
+                        android:id="@+id/layoutEpgNext2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="▶ "
+                            android:textSize="10sp"
+                            android:textColor="#4a5670"/>
+
+                        <TextView
+                            android:id="@+id/tvEpgNext2Title"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textSize="12sp"
+                            android:textColor="#94a3b8"
+                            android:maxLines="1"
+                            android:ellipsize="end"/>
+
+                        <TextView
+                            android:id="@+id/tvEpgNext2Start"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#4a5670"
+                            android:fontFamily="monospace"
+                            android:layout_marginStart="8dp"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=" – "
+                            android:textSize="11sp"
+                            android:textColor="#4a5670"/>
+
+                        <TextView
+                            android:id="@+id/tvEpgNext2End"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#4a5670"
+                            android:fontFamily="monospace"/>
+                    </LinearLayout>
+
+                </LinearLayout>
+                <!-- end bottom info overlay -->
+
+            </FrameLayout>
+            <!-- end playerFrame -->
+
+        </LinearLayout>
+        <!-- end COL 3 -->
+
+    </LinearLayout>
+
+    <!-- ══════════ LOADING / ERROR OVERLAY ══════════ -->
+    <LinearLayout
+        android:id="@+id/layoutLoading"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#CC0E1122"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminateTint="#00A8FF"/>
+
+        <TextView
+            android:id="@+id/tvError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:paddingLeft="40dp"
+            android:paddingRight="40dp"
+            android:textSize="14sp"
+            android:textColor="#94a3b8"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.5"
+            android:visibility="gone"/>
+
+        <Button
+            android:id="@+id/btnRetry"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginTop="20dp"
+            android:text="Rafraîchir"
+            android:textSize="13sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#00A8FF"
+            android:visibility="gone"
+            android:focusable="true"/>
+
+    </LinearLayout>
+
+</FrameLayout>

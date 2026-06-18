@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Trophy cup body -->
+    <path
+        android:pathData="M5,3 L19,3 L19,9 Q19,15 12,15 Q5,15 5,9 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+
+    <!-- Left handle -->
+    <path
+        android:pathData="M5,5 Q2,5 2,8 Q2,11 5,11"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+
+    <!-- Right handle -->
+    <path
+        android:pathData="M19,5 Q22,5 22,8 Q22,11 19,11"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+
+    <!-- Stem -->
+    <path
+        android:pathData="M12,15 L12,19"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+
+    <!-- Base -->
+    <path
+        android:pathData="M8,19 L16,19 L16,21 L8,21 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:fillColor="@android:color/transparent"/>
+
+    <!-- Star inside cup -->
+    <path
+        android:pathData="M12,6.5 L12.7,8.6 L14.9,8.6 L13.2,9.8 L13.9,11.9 L12,10.7 L10.1,11.9 L10.8,9.8 L9.1,8.6 L11.3,8.6 Z"
+        android:fillColor="#FFFFFF"/>
+</vector>

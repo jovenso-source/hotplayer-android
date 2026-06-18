@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Selected + focused: white card with blue left accent -->
+    <item android:state_selected="true" android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="8dp"/>
+                    <solid android:color="#FFFFFF"/>
+                </shape>
+            </item>
+            <item android:width="4dp" android:gravity="left">
+                <shape android:shape="rectangle">
+                    <corners android:topLeftRadius="8dp" android:bottomLeftRadius="8dp"/>
+                    <solid android:color="#00A8FF"/>
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Selected only: white card -->
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp"/>
+            <solid android:color="#EEF1FA"/>
+        </shape>
+    </item>
+
+    <!-- Focused only: subtle dark highlight -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp"/>
+            <solid android:color="#252A3E"/>
+        </shape>
+    </item>
+
+    <!-- Pressed -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp"/>
+            <solid android:color="#1E2236"/>
+        </shape>
+    </item>
+
+    <!-- Default: transparent -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent"/>
+        </shape>
+    </item>
+
+</selector>

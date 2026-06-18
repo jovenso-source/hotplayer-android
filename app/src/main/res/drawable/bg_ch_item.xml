@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Selected + focused: brighter card + blue accent -->
+    <item android:state_selected="true" android:state_focused="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="10dp"/>
+                    <solid android:color="#1F2D44"/>
+                </shape>
+            </item>
+            <item android:width="4dp" android:gravity="left">
+                <shape android:shape="rectangle">
+                    <corners android:topLeftRadius="10dp" android:bottomLeftRadius="10dp"/>
+                    <solid android:color="#00A8FF"/>
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Selected: blue-tinted card + accent -->
+    <item android:state_selected="true">
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <corners android:radius="10dp"/>
+                    <solid android:color="#182638"/>
+                </shape>
+            </item>
+            <item android:width="4dp" android:gravity="left">
+                <shape android:shape="rectangle">
+                    <corners android:topLeftRadius="10dp" android:bottomLeftRadius="10dp"/>
+                    <solid android:color="#00A8FF"/>
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- Focused: elevated card -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="10dp"/>
+            <solid android:color="#1D2540"/>
+        </shape>
+    </item>
+
+    <!-- Default: dark card background -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="10dp"/>
+            <solid android:color="#12162A"/>
+        </shape>
+    </item>
+
+</selector>

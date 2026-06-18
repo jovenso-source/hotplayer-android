@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="52dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/bg_watch_btn"
+    android:focusable="true"
+    android:focusableInTouchMode="false"
+    android:clickable="true"
+    android:paddingHorizontal="12dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="3dp">
+
+    <!-- Logo or text abbreviation -->
+    <ImageView
+        android:id="@+id/ivChLogo"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:scaleType="fitCenter"
+        android:layout_marginEnd="10dp"/>
+
+    <TextView
+        android:id="@+id/tvChLogoText"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_logo_icon"
+        android:layout_marginEnd="10dp"
+        android:visibility="gone"/>
+
+    <!-- Channel name -->
+    <TextView
+        android:id="@+id/tvChName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="12sp"
+        android:textColor="#e2e8f0"
+        android:maxLines="1"
+        android:ellipsize="end"/>
+
+    <!-- Watch icon -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="▶"
+        android:textSize="13sp"
+        android:textColor="#f5a623"/>
+</LinearLayout>

@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#BB000000">
+
+    <LinearLayout
+        android:id="@+id/popupCard"
+        android:layout_width="540dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:background="@drawable/bg_popup_card"
+        android:padding="28dp">
+
+        <!-- Icon + Title -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/tvPopupIcon"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:gravity="center"
+                android:textSize="22sp"
+                android:background="@drawable/bg_logo_icon"
+                android:layout_marginEnd="14dp"
+                android:text="📢"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvPopupBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:letterSpacing="0.12"
+                    android:background="@drawable/bg_live_badge"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:layout_marginBottom="5dp"
+                    android:text="ANNONCE"
+                    android:visibility="visible"/>
+
+                <TextView
+                    android:id="@+id/tvPopupTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:text="Titre"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Version comparison (update only) -->
+        <LinearLayout
+            android:id="@+id/layoutVersionInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_search_field"
+            android:padding="14dp"
+            android:gravity="center"
+            android:layout_marginBottom="14dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="VERSION ACTUELLE"
+                    android:textSize="12sp"
+                    android:textColor="#4a5670"
+                    android:letterSpacing="0.08"/>
+
+                <TextView
+                    android:id="@+id/tvCurrentVersion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="#6b7894"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="monospace"/>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="→"
+                android:textSize="20sp"
+                android:textColor="#4a5670"
+                android:paddingHorizontal="16dp"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NOUVELLE VERSION"
+                    android:textSize="12sp"
+                    android:textColor="#4a5670"
+                    android:letterSpacing="0.08"/>
+
+                <TextView
+                    android:id="@+id/tvNewVersion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="#f5a623"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="monospace"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Message -->
+        <TextView
+            android:id="@+id/tvPopupMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#94a3b8"
+            android:lineSpacingMultiplier="1.45"
+            android:layout_marginBottom="22dp"/>
+
+        <!-- Download progress (hidden by default) -->
+        <LinearLayout
+            android:id="@+id/layoutProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="18dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="7dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Téléchargement en cours…"
+                    android:textSize="13sp"
+                    android:textColor="#94a3b8"/>
+
+                <TextView
+                    android:id="@+id/tvProgressPercent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#f5a623"
+                    android:fontFamily="monospace"
+                    android:textStyle="bold"
+                    android:text="0%"/>
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/pbDownload"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#f5a623"
+                android:progressBackgroundTint="#1e2235"/>
+        </LinearLayout>
+
+        <!-- Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end">
+
+            <Button
+                android:id="@+id/btnPopupSecondary"
+                android:layout_width="wrap_content"
+                android:layout_height="46dp"
+                android:layout_marginEnd="12dp"
+                android:paddingHorizontal="22dp"
+                android:textSize="13sp"
+                android:textColor="#94a3b8"
+                android:backgroundTint="#1e2235"
+                android:focusable="true"
+                android:focusableInTouchMode="false"
+                android:text="Fermer"
+                android:nextFocusRight="@id/btnPopupPrimary"
+                android:nextFocusLeft="@id/btnPopupPrimary"/>
+
+            <Button
+                android:id="@+id/btnPopupPrimary"
+                android:layout_width="wrap_content"
+                android:layout_height="46dp"
+                android:paddingHorizontal="26dp"
+                android:textSize="13sp"
+                android:textColor="#1a1200"
+                android:backgroundTint="#f5a623"
+                android:textStyle="bold"
+                android:focusable="true"
+                android:focusableInTouchMode="false"
+                android:text="OK"
+                android:nextFocusRight="@id/btnPopupSecondary"
+                android:nextFocusLeft="@id/btnPopupSecondary"/>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

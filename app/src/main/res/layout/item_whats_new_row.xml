@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- Chaque ligne est statique — pour chaque version, éditer ce fichier -->
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="10dp">
+        <TextView android:layout_width="20dp" android:layout_height="wrap_content"
+            android:text="✦" android:textSize="10sp" android:textColor="#ff4d00"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Nouvelle interface section Sport (catégories, cartes, D-pad)"
+            android:textSize="13sp" android:textColor="#e2e8f0" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="10dp">
+        <TextView android:layout_width="20dp" android:layout_height="wrap_content"
+            android:text="✦" android:textSize="10sp" android:textColor="#ff4d00"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Mise à jour automatique du lien M3U depuis le backend"
+            android:textSize="13sp" android:textColor="#e2e8f0" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="10dp">
+        <TextView android:layout_width="20dp" android:layout_height="wrap_content"
+            android:text="✦" android:textSize="10sp" android:textColor="#ff4d00"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Correction du bug de révocation de session"
+            android:textSize="13sp" android:textColor="#e2e8f0" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="20dp" android:layout_height="wrap_content"
+            android:text="✦" android:textSize="10sp" android:textColor="#ff4d00"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Badge LIVE sur la carte Live TV"
+            android:textSize="13sp" android:textColor="#e2e8f0" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+</LinearLayout>
