@@ -27,16 +27,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Decode keystore
+      # Restore le keystore original (même signature que les 400 appareils installés)
+      - name: Restore keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > hotplayer-release.jks
+          mkdir -p $HOME/.android
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/.android/debug.keystore
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease
-        env:
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEY_ALIAS:      ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD:   ${{ secrets.KEY_PASSWORD }}
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
 
       - name: Extract version name
         id: ver
@@ -45,7 +43,7 @@ jobs:
           echo "name=$VER" >> $GITHUB_OUTPUT
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk hotplayer.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk hotplayer.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -55,7 +53,7 @@ jobs:
           body: |
             ## 📦 HotPlayer v${{ steps.ver.outputs.name }}
 
-            Installez l'APK sur votre Android TV en téléchargeant le fichier ci-dessous.
+            Installez l'APK sur votre Android TV.
 
             **Lien direct :**
             `https://github.com/${{ github.repository }}/releases/latest/download/hotplayer.apk`
