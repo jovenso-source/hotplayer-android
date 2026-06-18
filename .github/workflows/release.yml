@@ -6,6 +6,9 @@ on:
       - 'v*'           # déclenché sur git tag v1.1.0, v1.2.0, etc.
   workflow_dispatch:   # déclenchement manuel depuis GitHub
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
