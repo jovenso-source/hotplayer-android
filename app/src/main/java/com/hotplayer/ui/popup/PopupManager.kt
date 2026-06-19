@@ -76,13 +76,28 @@ object PopupManager {
 
     private fun shouldShow(activity: AppCompatActivity, config: PopupConfig): Boolean {
         val prefs = activity.getSharedPreferences("popup_prefs", Context.MODE_PRIVATE)
-        // Déjà traité (téléchargement lancé ou popup fermé) → ne plus afficher
-        if (prefs.getBoolean("seen_${config.id}", false)) return false
-        // Version installée déjà >= cible → inutile de proposer la mise à jour
+
         if (config.type == "update" && config.newVersion != null) {
-            if (versionAtLeast(BuildConfig.VERSION_NAME, config.newVersion)) return false
+            // Vérifier la version RÉELLEMENT installée sur l'appareil (pas BuildConfig)
+            val installedVersion = getInstalledVersion(activity)
+            if (versionAtLeast(installedVersion, config.newVersion)) {
+                // La nouvelle version est installée → marquer comme vu et ne pas afficher
+                markSeen(activity, config.id)
+                return false
+            }
+            // Version pas encore installée → toujours afficher, ignorer seen_ pour les updates
+            return true
         }
+
+        // Pour les autres types (annonce, maintenance) : vérifier seen normalement
+        if (prefs.getBoolean("seen_${config.id}", false)) return false
         return true
+    }
+
+    private fun getInstalledVersion(context: android.content.Context): String {
+        return try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0"
+        } catch (_: Exception) { "0" }
     }
 
     private fun versionAtLeast(current: String, target: String): Boolean {
@@ -218,7 +233,9 @@ object PopupManager {
                 binding.btnPopupPrimary.text      = "Installer maintenant"
                 binding.btnPopupPrimary.requestFocus()
                 binding.btnPopupPrimary.setOnClickListener {
-                    markSeen(activity, config.id)
+                    // Ne PAS marquer comme vu ici — l'installation peut être annulée.
+                    // La mise à jour sera marquée "vu" au prochain lancement
+                    // uniquement si la nouvelle version est réellement installée.
                     dialog.dismiss()
                     installApk(activity, destFile)
                 }

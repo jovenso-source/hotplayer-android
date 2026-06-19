@@ -27,23 +27,36 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # ── 1. Injecter la version du tag dans build.gradle AVANT la compilation ──
+      - name: Set version from git tag
+        id: ver
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          MAJOR=$(echo $VER | cut -d. -f1)
+          MINOR=$(echo $VER | cut -d. -f2)
+          PATCH=$(echo $VER | cut -d. -f3)
+          CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          echo "name=$VER"  >> $GITHUB_OUTPUT
+          echo "code=$CODE" >> $GITHUB_OUTPUT
+          sed -i "s/versionCode [0-9]*/versionCode $CODE/"         app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$VER\"/"  app/build.gradle
+          echo "→ versionName=$VER  versionCode=$CODE"
+          grep -E "versionCode|versionName" app/build.gradle
+
+      # ── 2. Restaurer le keystore ──────────────────────────────────────────────
       - name: Restore keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/hotplayer.keystore
 
-      - name: Build debug APK
+      # ── 3. Compiler avec la bonne version ────────────────────────────────────
+      - name: Build APK
         run: ./gradlew assembleDebug
         env:
           HOTPLAYER_KEYSTORE: /tmp/hotplayer.keystore
           STORE_PASSWORD:     android
           KEY_ALIAS:          androiddebugkey
           KEY_PASSWORD:       android
-
-      - name: Extract version name
-        id: ver
-        run: |
-          VER=$(grep 'versionName' app/build.gradle | grep -oP '"\K[^"]+')
-          echo "name=$VER" >> $GITHUB_OUTPUT
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk hotplayer.apk
