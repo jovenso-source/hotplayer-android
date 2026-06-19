@@ -88,15 +88,15 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
 
     private fun buildIndex(channels: List<Channel>) {
         val t0 = System.currentTimeMillis()
-        val sorted = ChannelUtils.sortChannels(channels)
-        val byGroup = sorted.groupBy { it.group ?: "" }
+        // Ordre playlist source — aucun tri appliqué sur les chaînes ni les catégories
+        val byGroup = channels.groupBy { it.group ?: "" }
         channelsByGroup = buildMap {
-            put("", sorted)                                  // "" = Tous
+            put("", channels)                                // "" = Tous, ordre original
             byGroup.forEach { (g, list) ->
                 if (g.isNotEmpty()) put(g, list)
             }
         }
-        prebuiltCats = ChannelUtils.buildSortedCats(channels, "Tous")
+        prebuiltCats = ChannelUtils.buildCatsInOrder(channels, "Tous")
         Log.d(TAG, "buildIndex: ${channels.size} ch → ${channelsByGroup.size} groups in ${System.currentTimeMillis() - t0}ms")
     }
 

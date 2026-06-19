@@ -75,4 +75,14 @@ object ChannelUtils {
             .map { it.key to it.value }
         return listOf(allLabel to channels.size) + sorted
     }
+
+    // Préserve l'ordre d'apparition des catégories dans la playlist source.
+    fun buildCatsInOrder(channels: List<Channel>, allLabel: String): List<Pair<String, Int>> {
+        val counts = LinkedHashMap<String, Int>()
+        for (ch in channels) {
+            val g = ch.group ?: continue
+            counts[g] = (counts[g] ?: 0) + 1
+        }
+        return listOf(allLabel to channels.size) + counts.map { (k, v) -> k to v }
+    }
 }
