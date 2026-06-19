@@ -76,3 +76,25 @@ jobs:
           files: hotplayer.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Notifier automatiquement le backend → l'app affiche la mise à jour ──
+      - name: Notify backend
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: ${{ secrets.WEBHOOK_SECRET }}" \
+            "${{ secrets.BACKEND_URL }}/api/webhook/release" \
+            -d "{
+              \"version_name\": \"${{ steps.ver.outputs.name }}\",
+              \"version_code\": ${{ steps.ver.outputs.code }},
+              \"download_url\": \"https://github.com/${{ github.repository }}/releases/latest/download/hotplayer.apk\",
+              \"changelog\":    \"HotPlayer v${{ steps.ver.outputs.name }} est disponible. Téléchargez la nouvelle version.\"
+            }")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "Backend response: $HTTP_CODE — $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠️ Backend notification failed (non-bloquant)"
+          else
+            echo "✅ Backend notifié — popup de mise à jour activé"
+          fi
