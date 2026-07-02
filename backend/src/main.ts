@@ -21,6 +21,12 @@ async function bootstrap() {
     origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
   });
 
+  // Health check without global prefix (used by Railway)
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/health', (_req: unknown, res: { json: (o: object) => void }) => {
+    res.json({ status: 'ok', version: process.env.npm_package_version ?? '2.0.0' });
+  });
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`HotPlayer backend running on port ${port}`);
