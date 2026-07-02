@@ -21,10 +21,24 @@ async function bootstrap() {
     origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
   });
 
-  // Health check without global prefix (used by Railway)
+  // Routes sans préfixe /api (utilisées par Railway et navigateur)
   const httpAdapter = app.getHttpAdapter();
   httpAdapter.get('/health', (_req: unknown, res: { json: (o: object) => void }) => {
     res.json({ status: 'ok', version: process.env.npm_package_version ?? '2.0.0' });
+  });
+  httpAdapter.get('/', (_req: unknown, res: { json: (o: object) => void }) => {
+    res.json({
+      name:    'HotPlayer Backend',
+      version: '2.0.0',
+      status:  'online',
+      endpoints: {
+        health:   'GET /health',
+        activate: 'POST /api/auth/activate',
+        status:   'GET  /api/auth/status',
+        register: 'POST /api/device/register',
+        auth:     'POST /api/device/authenticate',
+      },
+    });
   });
 
   const port = process.env.PORT ?? 3000;
