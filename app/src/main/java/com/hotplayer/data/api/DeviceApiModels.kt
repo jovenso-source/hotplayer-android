@@ -62,7 +62,7 @@ data class HeartbeatRequest(
     @SerializedName("session_id") val sessionId: String
 )
 
-data class HeartbeatResponse(
+data class DeviceHeartbeatResponse(
     @SerializedName("ok")           val ok: Boolean,
     @SerializedName("server_time")  val serverTime: String,
     @SerializedName("new_token")    val newToken: String?,   // présent si token renouvelé

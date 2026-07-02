@@ -46,7 +46,7 @@ interface DeviceApiService {
         @Header("Authorization") bearerToken: String,
         @Header("X-Device-ID")   deviceId: String,
         @Body body: HeartbeatRequest
-    ): Response<HeartbeatResponse>
+    ): Response<DeviceHeartbeatResponse>
 
     /**
      * Invalide la session côté serveur.

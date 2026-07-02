@@ -13,6 +13,7 @@ import com.hotplayer.data.api.DeviceAuthRequest
 import com.hotplayer.data.api.DeviceAuthResponse
 import com.hotplayer.data.api.DeviceInfoPayload
 import com.hotplayer.data.api.DeviceRegisterRequest
+import com.hotplayer.data.api.DeviceHeartbeatResponse
 import com.hotplayer.data.api.HeartbeatRequest
 import com.hotplayer.data.api.LogoutRequest
 import com.hotplayer.security.DeviceIdentityManager
