@@ -33,9 +33,10 @@ CREATE INDEX idx_users_email ON users(email);
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE devices (
     id              UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    device_id       VARCHAR(36)   UNIQUE NOT NULL,   -- UUID v4 généré sur l'appareil
-    installation_id VARCHAR(36)   NOT NULL,           -- UUID v4 par installation
-    fingerprint     VARCHAR(64)   NOT NULL,           -- SHA-256 des props hardware (32 chars)
+    device_id       VARCHAR(36)   UNIQUE,             -- UUID v4 généré sur l'appareil (null avant migration)
+    mac_address     VARCHAR(17)   UNIQUE,             -- AA:BB:CC:DD:EE:FF — hérité de l'ancien système
+    installation_id VARCHAR(36),                      -- UUID v4 par installation
+    fingerprint     VARCHAR(64),                      -- SHA-256 des props hardware (32 chars)
     user_id         UUID          REFERENCES users(id) ON DELETE SET NULL,
     label           VARCHAR(100),                     -- nom lisible (ex: "TV Salon")
     model           VARCHAR(150),                     -- "Samsung Galaxy Tab S9"

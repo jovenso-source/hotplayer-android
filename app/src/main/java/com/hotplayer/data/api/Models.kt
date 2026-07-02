@@ -10,7 +10,8 @@ data class ActivateResponse(
     @SerializedName("success")     val success: Boolean,
     @SerializedName("token")       val token: String,
     @SerializedName("expires_at")  val expiresAt: String,
-    @SerializedName("session_id")  val sessionId: Int,
+    @SerializedName("session_id")  val sessionId: String,   // UUID (nouveau format, rétrocompatible)
+    @SerializedName("device_id")   val deviceId: String?,   // null sur l'ancien backend, UUID sur le nouveau
     @SerializedName("device")      val device: DeviceInfo,
     @SerializedName("playlist")    val playlist: PlaylistInfo?
 )

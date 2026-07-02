@@ -47,6 +47,7 @@ class DeviceRepository @Inject constructor(
         private val KEY_EXPIRES    = stringPreferencesKey("device_token_expires")
         private val KEY_SESSION_ID = stringPreferencesKey("device_session_id")
         private val KEY_REGISTERED = booleanPreferencesKey("device_registered")
+        private val KEY_MIGRATED   = booleanPreferencesKey("device_migrated")   // migration MAC→UUID terminée
         private val KEY_STATUS     = stringPreferencesKey("device_status")
         private val KEY_PLAN       = stringPreferencesKey("device_plan")
         private val KEY_LABEL      = stringPreferencesKey("device_label")
@@ -228,6 +229,39 @@ class DeviceRepository @Inject constructor(
         val token   = prefs[KEY_TOKEN]   ?: return false
         val expires = prefs[KEY_EXPIRES] ?: return false
         return token.isNotBlank() && !isExpired(expires)
+    }
+
+    // ── Migration ─────────────────────────────────────────────────────────────
+
+    /**
+     * Retourne true si la migration MAC→Device ID a déjà été effectuée
+     * ou si l'appareil a été enregistré directement avec le nouveau système.
+     */
+    suspend fun isMigrated(): Boolean =
+        context.deviceDataStore.data.first()[KEY_MIGRATED] == true
+
+    /**
+     * Finalise la migration legacy : persiste le token reçu de l'ancien endpoint
+     * et marque l'appareil comme migré.
+     * Appelé après un `POST /auth/activate` réussi avec MAC.
+     */
+    suspend fun completeLegacyMigration(
+        token:     String,
+        expiresAt: String,
+        sessionId: String,
+        plan:      String,
+        label:     String,
+    ) {
+        context.deviceDataStore.edit { prefs ->
+            prefs[KEY_TOKEN]      = token
+            prefs[KEY_EXPIRES]    = expiresAt
+            prefs[KEY_SESSION_ID] = sessionId   // UUID de session (nouveau format)
+            prefs[KEY_PLAN]       = plan
+            prefs[KEY_LABEL]      = label
+            prefs[KEY_REGISTERED] = true
+            prefs[KEY_MIGRATED]   = true
+        }
+        Log.i(TAG, "Legacy migration completed — session saved")
     }
 
     private suspend fun isRegistered(): Boolean =

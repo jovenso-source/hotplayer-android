@@ -49,9 +49,26 @@ class DeviceIdentityManager @Inject constructor(
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /** Device ID stable, survit aux mises à jour de l'app. */
-    val deviceId: String by lazy {
-        prefs.getString(KEY_DEVICE_ID, null) ?: generateAndStore(KEY_DEVICE_ID)
+    /**
+     * Device ID stable, survit aux mises à jour de l'app.
+     * Utilisé comme champ `by lazy` avec cache volatile pour permettre la mise à jour
+     * lors de la migration (le serveur peut retourner un UUID différent si le device
+     * avait déjà un ID assigné).
+     */
+    @Volatile private var cachedDeviceId: String? = null
+
+    val deviceId: String
+        get() = cachedDeviceId
+            ?: (prefs.getString(KEY_DEVICE_ID, null) ?: generateAndStore(KEY_DEVICE_ID))
+                .also { cachedDeviceId = it }
+
+    /**
+     * Remplace le device ID local par celui retourné par le serveur lors de la migration.
+     * N'est appelé qu'une seule fois, lors de la première connexion post-migration.
+     */
+    fun assignServerDeviceId(serverDeviceId: String) {
+        prefs.edit().putString(KEY_DEVICE_ID, serverDeviceId).apply()
+        cachedDeviceId = serverDeviceId
     }
 
     /** Installation ID — change à chaque réinstallation. */

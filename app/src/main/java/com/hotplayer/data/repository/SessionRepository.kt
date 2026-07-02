@@ -15,7 +15,9 @@ import com.hotplayer.data.api.XtreamLiveStream
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
+import com.hotplayer.data.api.ActivateRequest
 import com.hotplayer.security.DeviceIdentityManager
+import com.hotplayer.utils.MacAddressHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -54,10 +56,15 @@ class SessionRepository @Inject constructor(
         private val KEY_XTREAM_SERVER  = stringPreferencesKey("xtream_server")
         private val KEY_XTREAM_USER    = stringPreferencesKey("xtream_user")
         private val KEY_XTREAM_PASS    = stringPreferencesKey("xtream_pass")
+        // Clés legacy : présentes dans l'ancien DataStore "hotplayer_session" sur les appareils migrés.
+        // Utilisées UNIQUEMENT pour lire l'ancienne MAC enregistrée, puis supprimées.
+        private val KEY_MAC_LEGACY     = stringPreferencesKey("mac")
         private const val TAG          = "SessionRepo"
     }
 
-    private val gson = Gson()
+    private val gson     = Gson()
+    // Helper MAC utilisé uniquement pendant la migration — jamais après.
+    private val macHelper: MacAddressHelper by lazy { MacAddressHelper(context) }
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -89,14 +96,29 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * Orchestre l'enregistrement + l'authentification via Device ID.
-     * Remplace l'ancienne logique basée sur l'adresse MAC.
+     * Point d'entrée principal — gère les deux cas :
+     *
+     *  CAS A — Ancien client (mise à jour depuis MAC) :
+     *   `isMigrated()` = false → appelle `POST /auth/activate` avec MAC
+     *   → serveur assigne un device_id → sauvegarde → migration terminée
+     *
+     *  CAS B — Nouveau client / déjà migré :
+     *   `isMigrated()` = true → appelle `POST /device/register` + `/device/authenticate`
+     *
+     * L'utilisateur ne voit rien, aucune reconnexion nécessaire.
      */
     suspend fun activate(): ActivationResult {
-        // 1. S'assurer que l'appareil est enregistré côté serveur
+        // ── CAS A : migration nécessaire ────────────────────────────────────
+        if (!deviceRepo.isMigrated()) {
+            val migrationResult = attemptLegacyMigration()
+            if (migrationResult != null) return migrationResult
+            // Si migration échoue (ancien backend indisponible ou appareil inconnu)
+            // → tenter le nouveau flux pour les nouveaux appareils
+        }
+
+        // ── CAS B : nouveau flux Device ID ──────────────────────────────────
         if (!deviceRepo.registerIfNeeded()) return ActivationResult.NetworkError
 
-        // 2. Obtenir un token JWT
         return when (val result = deviceRepo.authenticate()) {
             is DeviceRepository.DeviceResult.Success -> {
                 val body = result.response
@@ -122,6 +144,92 @@ class SessionRepository @Inject constructor(
                 ActivationResult.NotActivated
             DeviceRepository.DeviceResult.NetworkError ->
                 ActivationResult.NetworkError
+        }
+    }
+
+    /**
+     * Tente la migration transparente depuis le système MAC.
+     *
+     * Étapes :
+     *  1. Récupère la MAC (depuis l'ancien DataStore si disponible, sinon MacAddressHelper)
+     *  2. Appelle `POST /auth/activate` avec la MAC + le device_id local proposé
+     *  3. Le serveur retourne un device_id (le sien ou le proposé)
+     *  4. Si le device_id retourné diffère du local → met à jour EncryptedSharedPreferences
+     *  5. Persiste le token, marque la migration comme terminée
+     *
+     * @return ActivationResult si la migration a réussi, null si elle doit être ignorée
+     *         (appareil inconnu du serveur → nouveau flux)
+     */
+    private suspend fun attemptLegacyMigration(): ActivationResult? {
+        // Lire la MAC depuis l'ancien DataStore ou recalculer
+        val savedMac = context.dataStore.data.first()[KEY_MAC_LEGACY]
+        val mac      = savedMac?.takeIf { it.isNotBlank() } ?: macHelper.getDeviceMac()
+
+        Log.i(TAG, "Attempting legacy migration for MAC: ${mac.take(8)}…")
+
+        return try {
+            val response = api.activate(
+                deviceId    = identity.deviceId,
+                fingerprint = identity.deviceFingerprint,
+                model       = identity.deviceModel,
+                body        = ActivateRequest(mac = mac)
+            )
+
+            if (response.isSuccessful) {
+                val body = response.body()!!
+
+                // Si le serveur retourne un device_id différent (l'appareil avait déjà un UUID),
+                // on adopte celui du serveur pour la cohérence
+                val serverDeviceId = body.deviceId
+                if (!serverDeviceId.isNullOrBlank() && serverDeviceId != identity.deviceId) {
+                    Log.i(TAG, "Server assigned different device_id, updating local store")
+                    identity.assignServerDeviceId(serverDeviceId)
+                }
+
+                // Persister le token dans le nouveau DataStore device_auth
+                deviceRepo.completeLegacyMigration(
+                    token     = body.token,
+                    expiresAt = body.expiresAt,
+                    sessionId = body.sessionId,
+                    plan      = body.device.plan,
+                    label     = body.device.label ?: ""
+                )
+
+                // Persister la playlist dans le DataStore session (pour le cache)
+                body.playlist?.let { pl ->
+                    context.dataStore.edit { prefs ->
+                        prefs[KEY_PLAN]          = body.device.plan
+                        prefs[KEY_LABEL]         = body.device.label ?: ""
+                        prefs[KEY_PLAYLIST_TYPE] = pl.type
+                        pl.toM3uUrl()?.let { prefs[KEY_M3U_URL] = it }
+                        if (pl.type == "xtream") {
+                            pl.effectiveServer?.let { prefs[KEY_XTREAM_SERVER] = it }
+                            pl.effectiveUser?.let   { prefs[KEY_XTREAM_USER]   = it }
+                            pl.effectivePass?.let   { prefs[KEY_XTREAM_PASS]   = it }
+                        }
+                    }
+                }
+
+                Log.i(TAG, "Legacy migration successful")
+                ActivationResult.Success(body.playlist)
+
+            } else {
+                val code = parseErrorCode(response.errorBody()?.string())
+                when (code) {
+                    // Appareil inconnu du serveur (n'était pas dans l'ancien backend)
+                    // → laisser le nouveau flux gérer (retourner null)
+                    "DEVICE_NOT_FOUND" -> {
+                        Log.i(TAG, "MAC not found on server, falling through to new flow")
+                        null
+                    }
+                    // Appareil connu mais bloqué → informer l'utilisateur
+                    else -> ActivationResult.Failure(code, legacyErrorMessage(code))
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Legacy migration network error: ${e.message}")
+            // En cas d'erreur réseau, laisser le nouveau flux tenter sa chance
+            null
         }
     }
 
@@ -460,6 +568,18 @@ class SessionRepository @Inject constructor(
         is PlaylistCredentials.Xtream -> "xtream:${creds.server}:${creds.user}"
         is PlaylistCredentials.M3u    -> "m3u:${creds.url.hashCode()}"
         is PlaylistCredentials.None   -> "none"
+    }
+
+    private fun parseErrorCode(body: String?): String = try {
+        com.google.gson.JsonParser.parseString(body ?: "").asJsonObject["code"]?.asString ?: "UNKNOWN"
+    } catch (_: Exception) { "UNKNOWN" }
+
+    private fun legacyErrorMessage(code: String) = when (code) {
+        "DEVICE_INACTIVE"  -> "Appareil non activé. Contactez votre administrateur."
+        "DEVICE_SUSPENDED" -> "Appareil suspendu. Contactez le support."
+        "DEVICE_REVOKED"   -> "Accès révoqué. Contactez votre administrateur."
+        "DEVICE_EXPIRED"   -> "Abonnement expiré. Veuillez renouveler."
+        else               -> "Accès refusé. Contactez votre administrateur."
     }
 
     /** Device ID exposé pour affichage dans les écrans de debug/admin. */
