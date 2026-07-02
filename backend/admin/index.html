@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HotPlayer Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg0:#070809;--bg1:#0d0f12;--bg2:#12151a;--bg3:#181c22;--bg4:#1e232b;--border:#ffffff0f;--border2:#ffffff18;--accent:#ff4d00;--accent2:#ff6b2b;--accent-bg:#ff4d0012;--text:#e2e8f0;--text2:#7c8899;--text3:#3d4a5c;--green:#22d3a5;--green-bg:#22d3a512;--red:#ff4466;--red-bg:#ff446612;--yellow:#f5a623;--yellow-bg:#f5a62312;--blue:#4a9eff;--blue-bg:#4a9eff12;--r:10px;--r2:6px;--font:'Space Grotesk',sans-serif;--mono:'JetBrains Mono',monospace;--sidebar-w:230px;--top-h:58px;--shadow:0 8px 32px #00000060}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--font);background:var(--bg0);color:var(--text);height:100vh;overflow:hidden;display:flex}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.hidden{display:none!important}
+#login-screen{position:fixed;inset:0;z-index:200;background:var(--bg0);display:flex;align-items:center;justify-content:center}
+#login-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 30% 50%,#ff4d0008 0%,transparent 70%),radial-gradient(ellipse 40% 60% at 80% 20%,#4a9eff06 0%,transparent 60%)}
+.login-wrap{position:relative;z-index:1;width:400px;display:flex;flex-direction:column;gap:28px}
+.login-logo{display:flex;align-items:center;gap:12px}
+.logo-box{width:42px;height:42px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 0 30px #ff4d0040;flex-shrink:0}
+.logo-name{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.logo-name span{color:var(--accent)}
+.logo-badge{font-size:.6rem;font-weight:600;background:var(--accent-bg);color:var(--accent);border:1px solid #ff4d0030;padding:2px 7px;border-radius:4px;letter-spacing:.08em;text-transform:uppercase;margin-left:4px;vertical-align:middle}
+.login-card{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:18px;box-shadow:var(--shadow)}
+.login-card h2{font-size:1.15rem;font-weight:600}
+.login-card p{font-size:.85rem;color:var(--text2);margin-top:2px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:.72rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em}
+.field input{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text);padding:10px 14px;font-family:var(--font);font-size:.92rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #ff4d0018}
+.btn-primary{background:var(--accent);color:#fff;border:none;border-radius:var(--r2);padding:11px 20px;font-family:var(--font);font-size:.92rem;font-weight:600;cursor:pointer;width:100%;transition:background .15s,transform .1s;box-shadow:0 2px 16px #ff4d0030}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+#login-err{font-size:.82rem;color:var(--red);text-align:center;padding:8px;background:var(--red-bg);border-radius:var(--r2)}
+#app{display:flex;width:100%;height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:18px 10px;flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;border-bottom:1px solid var(--border);margin-bottom:10px}
+.sb-section{font-size:.65rem;font-weight:700;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;padding:10px 10px 4px}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;background:none;border:none;color:var(--text2);cursor:pointer;font-family:var(--font);font-size:.88rem;width:100%;text-align:left;transition:all .15s;position:relative}
+.nav-btn:hover{background:var(--bg3);color:var(--text)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);font-weight:500}
+.nav-btn.active::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:2px;background:var(--accent);border-radius:2px}
+.nav-icon{width:16px;text-align:center;font-size:.9rem;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--accent-bg);color:var(--accent);font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nav-badge.green{background:var(--green-bg);color:var(--green)}
+.sb-bottom{margin-top:auto;border-top:1px solid var(--border);padding-top:10px}
+.sb-user{display:flex;align-items:center;gap:8px;padding:8px 10px}
+.sb-avatar{width:28px;height:28px;background:var(--accent-bg);border:1px solid #ff4d0030;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--accent);flex-shrink:0}
+.sb-username{font-size:.82rem;font-weight:600;color:var(--text)}
+.sb-role{font-size:.68rem;color:var(--text3)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:var(--top-h);background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.topbar-title{font-size:1rem;font-weight:600;flex:1}
+.topbar-search{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:7px 12px;width:240px}
+.topbar-search input{background:none;border:none;color:var(--text);font-family:var(--font);font-size:.85rem;outline:none;flex:1}
+.topbar-search input::placeholder{color:var(--text3)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+#clock{font-family:var(--mono);font-size:.75rem;color:var(--text3)}
+.view{display:none;flex-direction:column;gap:20px;padding:24px;overflow-y:auto;flex:1;min-height:0}
+.view.active{display:flex}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px 16px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s,transform .2s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.stat-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem;margin-bottom:4px}
+.stat-icon.orange{background:var(--accent-bg)}.stat-icon.green{background:var(--green-bg)}.stat-icon.red{background:var(--red-bg)}.stat-icon.yellow{background:var(--yellow-bg)}.stat-icon.blue{background:var(--blue-bg)}
+.stat-n{font-size:1.9rem;font-weight:700;line-height:1;font-family:var(--mono)}
+.stat-n.orange{color:var(--accent)}.stat-n.green{color:var(--green)}.stat-n.red{color:var(--red)}.stat-n.yellow{color:var(--yellow)}.stat-n.blue{color:var(--blue)}
+.stat-l{font-size:.75rem;color:var(--text2)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.card-title{font-size:.9rem;font-weight:600;flex:1}
+.card-actions{display:flex;gap:8px;align-items:center}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+thead th{padding:10px 16px;text-align:left;font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;background:var(--bg3);white-space:nowrap}
+tbody tr{border-top:1px solid var(--border);transition:background .1s}
+tbody tr:hover{background:#ffffff04}
+td{padding:11px 16px;vertical-align:middle;color:var(--text2);white-space:nowrap}
+td.mono{font-family:var(--mono);font-size:.8rem;color:var(--accent2);letter-spacing:.03em}
+td.name{color:var(--text);font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.badge::before{content:'●';font-size:.5rem}
+.badge.active{background:var(--green-bg);color:var(--green)}.badge.inactive{background:var(--red-bg);color:var(--red)}.badge.suspended{background:var(--yellow-bg);color:var(--yellow)}.badge.trial{background:var(--blue-bg);color:var(--blue)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.8s infinite;margin-right:6px}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.btn{padding:7px 14px;border-radius:var(--r2);font-family:var(--font);font-size:.8rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-accent{background:var(--accent);color:#fff;box-shadow:0 2px 10px #ff4d0030}.btn-accent:hover{background:var(--accent2)}
+.btn-ghost{background:var(--bg4);color:var(--text2);border:1px solid var(--border2)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid #ff446620}.btn-danger:hover{background:#ff446622}
+.btn-success{background:var(--green-bg);color:var(--green);border:1px solid #22d3a520}.btn-success:hover{background:#22d3a522}
+.btn-sm{padding:5px 10px;font-size:.75rem}.btn-xs{padding:3px 8px;font-size:.72rem}
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.search-box{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:7px 12px;flex:1;min-width:180px}
+.search-box input{background:none;border:none;color:var(--text);font-family:var(--font);font-size:.85rem;outline:none;flex:1}
+.search-box input::placeholder{color:var(--text3)}
+select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text2);padding:7px 10px;font-family:var(--font);font-size:.82rem;outline:none;cursor:pointer}
+.pagination{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border)}
+.page-info{font-size:.75rem;color:var(--text3);margin-right:auto}
+.actions{display:flex;gap:4px}
+.modal-overlay{position:fixed;inset:0;background:#00000088;backdrop-filter:blur(8px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px #000000a0;animation:slideUp .2s ease}
+@keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
+.modal-header h3{font-size:.95rem;font-weight:600}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:4px;border-radius:4px;transition:color .15s}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:22px;display:flex;flex-direction:column;gap:14px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg2)}
+.form-row{display:flex;gap:12px;flex-wrap:wrap}
+.form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px}
+.form-group label{font-size:.7rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text);padding:9px 12px;font-family:var(--font);font-size:.88rem;outline:none;width:100%;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:60px}
+.form-hint{font-size:.72rem;color:var(--text3)}
+.form-divider{font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:10px}
+.form-divider::before,.form-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.log-success{color:var(--green)}.log-fail{color:var(--red)}
+.log-action-pill{display:inline-block;background:var(--bg4);color:var(--text2);font-size:.7rem;padding:2px 7px;border-radius:4px;font-family:var(--mono)}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px;color:var(--text3);text-align:center}
+.empty-icon{font-size:2rem;opacity:.5}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:11px 16px;font-size:.85rem;z-index:9999;max-width:300px;box-shadow:var(--shadow);animation:toastIn .2s ease}
+#toast.ok{border-left:3px solid var(--green)}#toast.err{border-left:3px solid var(--red)}#toast.info{border-left:3px solid var(--accent)}
+@keyframes toastIn{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+.expiry-warn{color:var(--yellow)}.expiry-ok{color:var(--text2)}.expiry-none{color:var(--green);font-size:.75rem}
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="logo-box">▶</div>
+      <div><span class="logo-name">Hot<span>Player</span></span><span class="logo-badge">Admin</span></div>
+    </div>
+    <div class="login-card">
+      <div><h2>Connexion administrateur</h2><p>Accès réservé aux administrateurs autorisés</p></div>
+      <div class="field"><label>Nom d'utilisateur</label><input id="l-user" type="text" value="admin" autocomplete="username"/></div>
+      <div class="field"><label>Mot de passe</label><input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••"/></div>
+      <button class="btn-primary" id="login-btn">Se connecter</button>
+      <div id="login-err" class="hidden"></div>
+    </div>
+  </div>
+</div>
+<div id="app" class="hidden">
+  <aside class="sidebar">
+    <div class="sb-logo"><div class="logo-box" style="width:32px;height:32px;font-size:.85rem;border-radius:8px">▶</div><span class="logo-name" style="font-size:1rem">Hot<span>Player</span></span></div>
+    <div class="sb-section">Principal</div>
+    <button class="nav-btn active" data-view="dashboard"><span class="nav-icon">⊞</span>Dashboard</button>
+    <button class="nav-btn" data-view="devices"><span class="nav-icon">📱</span>Appareils<span class="nav-badge" id="nb-devices">0</span></button>
+    <button class="nav-btn" data-view="sessions"><span class="nav-icon">◉</span>Sessions<span class="nav-badge green" id="nb-sessions">0</span></button>
+    <div class="sb-section">Système</div>
+    <button class="nav-btn" data-view="popups"><span class="nav-icon">🔔</span>Notifications<span class="nav-badge" id="nb-popups" style="background:var(--yellow-bg);color:var(--yellow)">0</span></button>
+    <button class="nav-btn" data-view="logs"><span class="nav-icon">📋</span>Logs</button>
+    <div class="sb-bottom">
+      <button class="nav-btn" id="logout-btn"><span class="nav-icon">⏻</span>Déconnexion</button>
+      <div class="sb-user"><div class="sb-avatar" id="sb-avatar">A</div><div><div class="sb-username" id="sb-username">admin</div><div class="sb-role" id="sb-role">superadmin</div></div></div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="view-title">Dashboard</div>
+      <div class="topbar-search"><span style="color:var(--text3)">⌕</span><input type="text" id="global-search" placeholder="Rechercher un MAC…"/></div>
+      <div class="topbar-right"><span id="clock"></span><button class="btn btn-accent btn-sm" onclick="openAddDevice()">+ Appareil</button></div>
+    </header>
+    <section class="view active" id="view-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon orange">📱</div><div class="stat-n orange" id="s-total">—</div><div class="stat-l">Total appareils</div></div>
+        <div class="stat-card"><div class="stat-icon green">✓</div><div class="stat-n green" id="s-active">—</div><div class="stat-l">Actifs</div></div>
+        <div class="stat-card"><div class="stat-icon red">✕</div><div class="stat-n red" id="s-inactive">—</div><div class="stat-l">Inactifs</div></div>
+        <div class="stat-card"><div class="stat-icon yellow">⚠</div><div class="stat-n yellow" id="s-expiring">—</div><div class="stat-l">Expirent bientôt</div></div>
+        <div class="stat-card" style="border-color:#22d3a530;cursor:pointer" onclick="switchView('sessions')"><div class="stat-icon green">◉</div><div class="stat-n green" id="s-online" style="display:flex;align-items:center;gap:8px">—<span class="live-dot" id="online-dot" style="display:none"></span></div><div class="stat-l">En ligne maintenant <span style="font-size:.68rem;color:var(--text3)" id="s-online-stale"></span></div></div>
+        <div class="stat-card"><div class="stat-icon red">⛔</div><div class="stat-n red" id="s-denied">—</div><div class="stat-l">Refusés aujourd'hui</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Activité récente</div><button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↻ Actualiser</button></div>
+        <div class="table-wrap" style="max-height:380px;overflow-y:auto"><table><thead><tr><th>Heure</th><th>MAC</th><th>Action</th><th>Résultat</th><th>Détail</th></tr></thead><tbody id="activity-body"></tbody></table></div>
+      </div>
+    </section>
+    <section class="view" id="view-devices">
+      <div class="filter-bar">
+        <div class="search-box"><span style="color:var(--text3)">⌕</span><input type="text" id="dev-search" placeholder="Rechercher MAC, label…"/></div>
+        <select id="dev-status-filter"><option value="">Tous les statuts</option><option value="active">Actif</option><option value="inactive">Inactif</option><option value="suspended">Suspendu</option><option value="trial">Essai</option></select>
+        <button class="btn btn-ghost btn-sm" onclick="loadDevices()">↻</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Appareils enregistrés</div><div class="card-actions"><span id="dev-count" style="font-size:.75rem;color:var(--text3)"></span><button class="btn btn-ghost btn-sm" onclick="openImport()">📥 Importer Excel</button><button class="btn btn-accent btn-sm" onclick="openAddDevice()">+ Ajouter</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Adresse MAC</th><th>Label</th><th>Statut</th><th>Plan</th><th>Connexions</th><th>Expiration</th><th>Ajouté</th><th>Actions</th></tr></thead><tbody id="devices-body"></tbody></table></div>
+        <div class="pagination" id="dev-pagination"></div>
+      </div>
+    </section>
+    <section class="view" id="view-sessions">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><span class="live-dot"></span>Sessions actives</div><button class="btn btn-ghost btn-sm" onclick="loadSessions()">↻ Actualiser</button></div>
+        <div class="table-wrap"><table><thead><tr><th>MAC</th><th>Label</th><th>IP</th><th>Plan</th><th>Démarré</th><th>Dernier ping</th><th>Action</th></tr></thead><tbody id="sessions-body"></tbody></table></div>
+        <div id="sessions-empty" class="hidden"><div class="empty-state"><div class="empty-icon">◉</div><p>Aucune session active</p></div></div>
+      </div>
+    </section>
+    <section class="view" id="view-popups">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔔 Notifications &amp; Mises à jour</div>
+          <div class="card-actions">
+            <button class="btn btn-ghost btn-sm" onclick="deactivateAllPopups()">⊘ Tout désactiver</button>
+            <button class="btn btn-accent btn-sm" onclick="openAddPopup()">+ Nouveau</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Type</th><th>Titre</th><th>Force</th><th>Statut</th><th>Créé le</th><th>Actions</th></tr></thead>
+            <tbody id="popups-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="background:var(--bg3);border-color:#2a2f47">
+        <div class="card-header"><div class="card-title" style="font-size:.8rem;color:var(--text2)">📡 URL publique utilisée par les apps</div></div>
+        <div style="padding:14px 18px;font-family:var(--mono);font-size:.8rem;color:var(--accent2)" id="popup-public-url"></div>
+      </div>
+    </section>
+    <section class="view" id="view-logs">
+      <div class="filter-bar">
+        <div class="search-box" style="max-width:220px"><span style="color:var(--text3)">⌕</span><input type="text" id="log-mac" placeholder="Filtrer par MAC…"/></div>
+        <select id="log-action"><option value="">Toutes les actions</option><option value="activate">activate</option><option value="mac_check">mac_check</option><option value="stream_start">stream_start</option><option value="logout">logout</option><option value="session_kicked">session_kicked</option><option value="admin_add">admin_add</option><option value="admin_update">admin_update</option><option value="admin_delete">admin_delete</option></select>
+        <select id="log-result"><option value="">Tous les résultats</option><option value="success">success</option><option value="fail">fail</option></select>
+        <button class="btn btn-ghost btn-sm" onclick="loadLogs()">↻</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Journal d'accès</div></div>
+        <div class="table-wrap" style="max-height:calc(100vh - 240px);overflow-y:auto"><table><thead><tr><th>Heure</th><th>MAC</th><th>IP</th><th>Action</th><th>Résultat</th><th>Détail</th></tr></thead><tbody id="logs-body"></tbody></table></div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="modal-device" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-title">Ajouter un appareil</h3><button class="modal-close" onclick="closeModal('modal-device')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id"/>
+      <div class="form-row">
+        <div class="form-group"><label>Adresse MAC *</label><input id="f-mac" placeholder="AA:BB:CC:DD:EE:FF"/><span class="form-hint">Format: XX:XX:XX:XX:XX:XX</span></div>
+        <div class="form-group"><label>Label</label><input id="f-label" placeholder="TV Salon de John"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Statut</label><select id="f-status"><option value="active">Actif</option><option value="inactive">Inactif</option><option value="trial">Essai</option><option value="suspended">Suspendu</option></select></div>
+        <div class="form-group"><label>Plan</label><select id="f-plan"><option value="trial">Essai</option><option value="monthly">Mensuel</option><option value="quarterly">Trimestriel</option><option value="yearly">Annuel</option><option value="lifetime">À vie</option></select></div>
+        <div class="form-group" style="max-width:100px"><label>Max conn.</label><input id="f-maxconn" type="number" value="1" min="1" max="10"/></div>
+      </div>
+      <div class="form-group"><label>Date d'expiration (vide = à vie)</label><input id="f-expiry" type="date"/></div>
+      <div class="form-divider">Playlist assignée</div>
+      <div class="form-group"><label>URL M3U</label><input id="f-m3u" placeholder="http://provider.com/playlist.m3u"/></div>
+      <div class="form-divider" style="font-size:.65rem">ou Xtream Codes</div>
+      <div class="form-row">
+        <div class="form-group"><label>Serveur Xtream</label><input id="f-xs" placeholder="http://server.com:8080"/></div>
+        <div class="form-group"><label>Utilisateur</label><input id="f-xu" placeholder="username"/></div>
+        <div class="form-group"><label>Mot de passe</label><input id="f-xp" type="password" placeholder="password"/></div>
+      </div>
+      <div class="form-group"><label>Notes internes</label><textarea id="f-notes" placeholder="Notes…"></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-device')">Annuler</button><button class="btn btn-accent" onclick="saveDevice()">Enregistrer</button></div>
+  </div>
+</div>
+<div id="modal-reset" class="modal-overlay hidden">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header"><h3>Réinitialiser le MAC</h3><button class="modal-close" onclick="closeModal('modal-reset')">✕</button></div>
+    <div class="modal-body"><input type="hidden" id="reset-id"/><div class="form-group"><label>Nouvelle adresse MAC</label><input id="reset-mac" placeholder="AA:BB:CC:DD:EE:FF"/><span class="form-hint">⚠ Toutes les sessions actives seront terminées.</span></div></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-reset')">Annuler</button><button class="btn btn-danger" onclick="confirmResetMac()">Réinitialiser</button></div>
+  </div>
+</div>
+<div id="modal-popup" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3 id="popup-modal-title">Nouveau popup</h3><button class="modal-close" onclick="closeModal('modal-popup')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="popup-edit-id"/>
+      <div class="form-row">
+        <div class="form-group"><label>ID unique *</label><input id="p-id" placeholder="v1.2.0 ou annonce_2024_01"/><span class="form-hint">Identifiant unique — l'app ne montre pas deux fois le même ID</span></div>
+        <div class="form-group" style="max-width:160px"><label>Type *</label>
+          <select id="p-type">
+            <option value="announcement">📢 Annonce</option>
+            <option value="maintenance">⚠️ Maintenance</option>
+            <option value="update">🚀 Mise à jour</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>Titre *</label><input id="p-title" placeholder="Ex: Nouvelle version disponible"/></div>
+      <div class="form-group"><label>Message</label><textarea id="p-message" placeholder="Description complète du message…" style="min-height:80px"></textarea></div>
+      <div class="form-divider">Options boutons</div>
+      <div class="form-row">
+        <div class="form-group"><label>Bouton secondaire (fermer)</label><input id="p-btn-ok" placeholder="Fermer" value="Fermer"/></div>
+        <div class="form-group"><label>Bouton principal (action)</label><input id="p-btn-action" placeholder="Télécharger (vide = pas de bouton)"/></div>
+      </div>
+      <div class="form-divider" id="update-section-divider">Paramètres mise à jour</div>
+      <div id="update-fields">
+        <div class="form-row">
+          <div class="form-group"><label>Version actuelle</label><input id="p-ver-cur" placeholder="1.0.0"/></div>
+          <div class="form-group"><label>Nouvelle version</label><input id="p-ver-new" placeholder="1.1.0"/></div>
+        </div>
+        <div class="form-group"><label>URL de téléchargement APK</label><input id="p-dl-url" placeholder="https://exemple.com/freebox.apk"/></div>
+      </div>
+      <div class="form-row" style="margin-top:6px">
+        <div class="form-group" style="flex:0 0 auto">
+          <label>Mise à jour forcée</label>
+          <select id="p-force"><option value="false">Non — l'utilisateur peut ignorer</option><option value="true">Oui — impossible de fermer</option></select>
+        </div>
+        <div class="form-group" style="flex:0 0 auto;max-width:180px"><label>Auto-fermeture (secondes)</label><input id="p-autoclose" type="number" placeholder="vide = désactivé" min="5"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-popup')">Annuler</button>
+      <button class="btn btn-accent" onclick="savePopup()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="modal-import" class="modal-overlay hidden">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header"><h3>📥 Importer des appareils (Excel / CSV)</h3><button class="modal-close" onclick="closeModal('modal-import')">✕</button></div>
+    <div class="modal-body">
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:12px 14px;font-size:.81rem;color:var(--text2);line-height:1.6">
+        <strong style="color:var(--text)">Colonnes attendues :</strong> mac_address <span style="color:var(--red)">*</span>, label, status, plan, max_connections, expiration_date <span style="color:var(--text3)">(YYYY-MM-DD)</span>, playlist_url, xtream_server, xtream_user, xtream_pass, notes<br>
+        <span style="color:var(--text3);font-size:.75rem">* obligatoire · Les appareils dont le MAC existe déjà sont ignorés sans erreur.</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="downloadTemplate()">⬇ Télécharger le modèle</button>
+        <label style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:8px 14px;cursor:pointer;font-size:.83rem;color:var(--text2);transition:border-color .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
+          📂 Choisir un fichier (.xlsx / .csv)
+          <input type="file" id="import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleImportFile(this)"/>
+        </label>
+        <span id="import-filename" style="font-size:.78rem;color:var(--text3)"></span>
+      </div>
+      <div id="import-preview" class="hidden">
+        <div style="font-size:.8rem;color:var(--text2);margin-bottom:8px" id="import-preview-info"></div>
+        <div class="table-wrap" style="max-height:260px;overflow-y:auto">
+          <table><thead><tr><th>MAC</th><th>Label</th><th>Statut</th><th>Plan</th><th>Conn.</th><th>Expiration</th></tr></thead>
+          <tbody id="import-preview-body"></tbody></table>
+        </div>
+      </div>
+      <div id="import-result" class="hidden" style="border-radius:var(--r2);padding:13px 15px;font-size:.84rem;border-left:3px solid var(--green)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-import')">Fermer</button>
+      <button class="btn btn-accent" id="import-btn" onclick="doImport()" disabled>Importer</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden"></div>
+<script>
+const API='/api/admin';
+let adminToken=null,devPage=1;
+const devLimit=30;
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR')},1000);
+async function api(path,method='GET',body=null,auth=true){
+  const headers={'Content-Type':'application/json'};
+  if(auth&&adminToken)headers['Authorization']=`Bearer ${adminToken}`;
+  try{const r=await fetch(API+path,{method,headers,body:body?JSON.stringify(body):null});const data=await r.json().catch(()=>({}));return{ok:r.ok,status:r.status,data}}
+  catch(e){return{ok:false,status:0,data:{error:'Erreur réseau'}}}
+}
+document.getElementById('login-btn').addEventListener('click',doLogin);
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!document.getElementById('login-screen').classList.contains('hidden'))doLogin()});
+async function doLogin(){
+  const user=document.getElementById('l-user').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  const btn=document.getElementById('login-btn');
+  const err=document.getElementById('login-err');
+  btn.disabled=true;btn.textContent='Connexion…';err.classList.add('hidden');
+  const{ok,data}=await api('/login','POST',{username:user,password:pass},false);
+  btn.disabled=false;btn.textContent='Se connecter';
+  if(ok){adminToken=data.token;document.getElementById('login-screen').classList.add('hidden');document.getElementById('app').classList.remove('hidden');document.getElementById('sb-username').textContent=data.username;document.getElementById('sb-role').textContent=data.role;document.getElementById('sb-avatar').textContent=data.username[0].toUpperCase();loadDashboard();setInterval(()=>{updateNavBadges();if(document.getElementById('view-dashboard').classList.contains('active'))loadDashboard();if(document.getElementById('view-sessions').classList.contains('active'))loadSessions()},30000)}
+  else{err.textContent=data.error||'Identifiants incorrects';err.classList.remove('hidden')}
+}
+document.getElementById('logout-btn').addEventListener('click',()=>{adminToken=null;document.getElementById('login-screen').classList.remove('hidden');document.getElementById('app').classList.add('hidden');document.getElementById('l-pass').value=''});
+document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>{btn.addEventListener('click',()=>switchView(btn.dataset.view))});
+const viewTitles={dashboard:'Dashboard',devices:'Appareils',sessions:'Sessions actives',logs:"Journal d'accès",popups:'Notifications & Mises à jour'};
+function switchView(name){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelector(`[data-view="${name}"]`)?.classList.add('active');document.getElementById(`view-${name}`)?.classList.add('active');document.getElementById('view-title').textContent=viewTitles[name]||name;({dashboard:loadDashboard,devices:loadDevices,sessions:loadSessions,logs:loadLogs,popups:loadPopups})[name]?.()}
+async function updateNavBadges(){const{data}=await api('/stats');if(!data.devices)return;document.getElementById('nb-devices').textContent=data.devices.total;document.getElementById('nb-sessions').textContent=data.connections.active_now}
+async function loadDashboard(){
+  const{data}=await api('/stats');if(!data.devices)return;
+  document.getElementById('s-total').textContent=data.devices.total;
+  document.getElementById('s-active').textContent=data.devices.active;
+  document.getElementById('s-inactive').textContent=data.devices.inactive+(data.devices.suspended||0);
+  document.getElementById('s-expiring').textContent=data.devices.expiring_soon;
+  const online = data.connections.active_now;
+  const stale  = (data.connections.total_open || 0) - online;
+  document.getElementById('s-online').childNodes[0].textContent = online;
+  document.getElementById('online-dot').style.display = online > 0 ? 'inline-block' : 'none';
+  document.getElementById('s-online-stale').textContent = stale > 0 ? `(+${stale} inactifs)` : '';
+  document.getElementById('s-denied').textContent=data.logs.denied_today;
+  document.getElementById('nb-devices').textContent=data.devices.total;
+  document.getElementById('nb-sessions').textContent=data.connections.active_now;
+  const tbody=document.getElementById('activity-body');tbody.innerHTML='';
+  const rows=data.recent_activity||[];
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucune activité</p></div></td></tr>`;return}
+  rows.forEach(l=>{const tr=document.createElement('tr');tr.innerHTML=`<td style="font-size:.75rem;color:var(--text3)">${fmtDate(l.created_at)}</td><td class="mono">${l.mac_address||'—'}</td><td><span class="log-action-pill">${l.action}</span></td><td class="${l.result==='success'?'log-success':'log-fail'}">${l.result}</td><td style="font-size:.74rem;color:var(--text3)">${l.detail||''}</td>`;tbody.appendChild(tr)})
+}
+let devSearchTimer;
+document.getElementById('dev-search').addEventListener('input',()=>{clearTimeout(devSearchTimer);devSearchTimer=setTimeout(()=>{devPage=1;loadDevices()},350)});
+document.getElementById('dev-status-filter').addEventListener('change',()=>{devPage=1;loadDevices()});
+async function loadDevices(){
+  const search=document.getElementById('dev-search').value;
+  const status=document.getElementById('dev-status-filter').value;
+  const params=new URLSearchParams({page:devPage,limit:devLimit});
+  if(search)params.set('search',search);if(status)params.set('status',status);
+  const{data}=await api(`/devices?${params}`);if(!data.devices)return;
+  document.getElementById('dev-count').textContent=`${data.total} appareil${data.total!==1?'s':''}`;
+  const tbody=document.getElementById('devices-body');tbody.innerHTML='';
+  if(!data.devices.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📱</div><p>Aucun appareil trouvé</p></div></td></tr>`;return}
+  data.devices.forEach(d=>{
+    const tr=document.createElement('tr');
+    const expiry=d.expiration_date?`<span class="${isExpiringSoon(d.expiration_date)?'expiry-warn':'expiry-ok'}">${d.expiration_date.split('T')[0]}</span>`:`<span class="expiry-none">∞ À vie</span>`;
+    const conns=`<span style="color:${d.active_connections>0?'var(--green)':'var(--text3)'}">${d.active_connections} / ${d.max_connections}</span>`;
+    tr.innerHTML=`<td class="mono">${d.mac_address}</td><td class="name">${d.label||'<span style="color:var(--text3)">—</span>'}</td><td><span class="badge ${d.status}">${d.status}</span></td><td style="text-transform:capitalize;font-size:.8rem">${d.plan}</td><td>${conns}</td><td>${expiry}</td><td style="font-size:.74rem;color:var(--text3)">${fmtDateShort(d.created_at)}</td><td><div class="actions"><button class="btn btn-ghost btn-xs" onclick="editDevice(${d.id})">Éditer</button>${d.status==='active'?`<button class="btn btn-danger btn-xs" onclick="deactivateDevice(${d.id})">Désactiver</button>`:`<button class="btn btn-success btn-xs" onclick="activateDevice(${d.id})">Activer</button>`}<button class="btn btn-ghost btn-xs" onclick="openResetMac(${d.id})">Reset MAC</button><button class="btn btn-danger btn-xs" onclick="deleteDevice(${d.id},'${d.mac_address}')">✕</button></div></td>`;
+    tbody.appendChild(tr)
+  });
+  const pg=document.getElementById('dev-pagination');pg.innerHTML=`<span class="page-info">Page ${data.page} / ${data.pages} — ${data.total} résultats</span>`;
+  if(data.page>1)pg.innerHTML+=`<button class="btn btn-ghost btn-sm" onclick="devPage--;loadDevices()">← Précédent</button>`;
+  if(data.page<data.pages)pg.innerHTML+=`<button class="btn btn-ghost btn-sm" onclick="devPage++;loadDevices()">Suivant →</button>`;
+}
+function openAddDevice(){document.getElementById('modal-title').textContent='Ajouter un appareil';document.getElementById('edit-id').value='';['f-mac','f-label','f-m3u','f-xs','f-xu','f-xp','f-notes','f-expiry'].forEach(id=>{document.getElementById(id).value=''});document.getElementById('f-status').value='active';document.getElementById('f-plan').value='monthly';document.getElementById('f-maxconn').value=1;document.getElementById('f-mac').disabled=false;document.getElementById('modal-device').classList.remove('hidden')}
+async function editDevice(id){const{data}=await api(`/devices/${id}`);const d=data.device;if(!d)return;document.getElementById('modal-title').textContent="Modifier l'appareil";document.getElementById('edit-id').value=d.id;document.getElementById('f-mac').value=d.mac_address;document.getElementById('f-mac').disabled=true;document.getElementById('f-label').value=d.label||'';document.getElementById('f-status').value=d.status;document.getElementById('f-plan').value=d.plan;document.getElementById('f-maxconn').value=d.max_connections;document.getElementById('f-expiry').value=d.expiration_date?.split('T')[0]||'';document.getElementById('f-m3u').value=d.playlist_url||'';document.getElementById('f-xs').value=d.xtream_server||'';document.getElementById('f-xu').value=d.xtream_user||'';document.getElementById('f-xp').value=d.xtream_pass||'';document.getElementById('f-notes').value=d.notes||'';document.getElementById('modal-device').classList.remove('hidden')}
+async function saveDevice(){const id=document.getElementById('edit-id').value;const payload={mac_address:document.getElementById('f-mac').value,label:document.getElementById('f-label').value,status:document.getElementById('f-status').value,plan:document.getElementById('f-plan').value,max_connections:parseInt(document.getElementById('f-maxconn').value),expiration_date:document.getElementById('f-expiry').value||null,playlist_url:document.getElementById('f-m3u').value||null,xtream_server:document.getElementById('f-xs').value||null,xtream_user:document.getElementById('f-xu').value||null,xtream_pass:document.getElementById('f-xp').value||null,notes:document.getElementById('f-notes').value};const{ok,data}=id?await api(`/devices/${id}`,'PATCH',payload):await api('/devices','POST',payload);if(ok){toast(id?'Appareil mis à jour ✓':'Appareil ajouté ✓','ok');closeModal('modal-device');loadDevices();loadDashboard()}else toast(data.error||'Erreur','err')}
+async function activateDevice(id){const exp=prompt("Date d'expiration (YYYY-MM-DD) — vide = à vie:");if(exp===null)return;const{ok,data}=await api(`/devices/${id}/activate`,'POST',{expiration_date:exp||null});if(ok){toast('Appareil activé ✓','ok');loadDevices();loadDashboard()}else toast(data.error||'Erreur','err')}
+async function deactivateDevice(id){if(!confirm('Désactiver cet appareil et terminer toutes les sessions ?'))return;const{ok}=await api(`/devices/${id}/deactivate`,'POST');if(ok){toast('Désactivé','info');loadDevices();loadDashboard()}else toast('Erreur','err')}
+async function deleteDevice(id,mac){if(!confirm(`Supprimer l'appareil ${mac} ?`))return;const{ok}=await api(`/devices/${id}`,'DELETE');if(ok){toast('Supprimé','info');loadDevices();loadDashboard()}else toast('Erreur','err')}
+function openResetMac(id){document.getElementById('reset-id').value=id;document.getElementById('reset-mac').value='';document.getElementById('modal-reset').classList.remove('hidden')}
+async function confirmResetMac(){const id=document.getElementById('reset-id').value;const mac=document.getElementById('reset-mac').value;const{ok,data}=await api(`/devices/${id}/reset-mac`,'POST',{new_mac:mac});if(ok){toast('MAC réinitialisé ✓','ok');closeModal('modal-reset');loadDevices()}else toast(data.error||'Erreur','err')}
+async function loadSessions(){const{data}=await api('/sessions');const tbody=document.getElementById('sessions-body');const empty=document.getElementById('sessions-empty');tbody.innerHTML='';const rows=data.sessions||[];empty.classList.toggle('hidden',rows.length>0);rows.forEach(s=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="mono">${s.mac_address}</td><td class="name">${s.label||'—'}</td><td style="font-size:.78rem;color:var(--text3)">${s.ip_address||'—'}</td><td style="font-size:.78rem;text-transform:capitalize">${s.plan}</td><td style="font-size:.75rem;color:var(--text3)">${fmtDate(s.started_at)}</td><td style="font-size:.75rem;color:var(--green)">${fmtDate(s.last_seen)}</td><td><button class="btn btn-danger btn-xs" onclick="killSession(${s.id})">✕ Terminer</button></td>`;tbody.appendChild(tr)})}
+async function killSession(id){const{ok}=await api(`/sessions/${id}`,'DELETE');if(ok){toast('Session terminée','info');loadSessions()}}
+async function loadLogs(){const mac=document.getElementById('log-mac').value;const action=document.getElementById('log-action').value;const result=document.getElementById('log-result').value;const params=new URLSearchParams({limit:150});if(mac)params.set('mac',mac);if(action)params.set('action',action);if(result)params.set('result',result);const{data}=await api(`/logs?${params}`);const tbody=document.getElementById('logs-body');tbody.innerHTML='';const rows=data.logs||[];if(!rows.length){tbody.innerHTML=`<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><p>Aucun log trouvé</p></div></td></tr>`;return}rows.forEach(l=>{const tr=document.createElement('tr');tr.innerHTML=`<td style="font-size:.74rem;color:var(--text3);white-space:nowrap">${fmtDate(l.created_at)}</td><td class="mono">${l.mac_address||'—'}</td><td style="font-size:.75rem;color:var(--text3)">${l.ip_address||'—'}</td><td><span class="log-action-pill">${l.action}</span></td><td class="${l.result==='success'?'log-success':'log-fail'}">${l.result}</td><td style="font-size:.73rem;color:var(--text3)">${l.detail||''}</td>`;tbody.appendChild(tr)})}
+function closeModal(id){document.getElementById(id)?.classList.add('hidden')}
+document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')})});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m=>m.classList.add('hidden'))});
+let toastTimer;
+function toast(msg,type='info'){const el=document.getElementById('toast');el.textContent=msg;el.className=type;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.add('hidden'),3000)}
+function fmtDate(iso){if(!iso)return'—';return new Date(iso).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}
+function fmtDateShort(iso){if(!iso)return'—';return new Date(iso).toLocaleDateString('fr-FR')}
+function isExpiringSoon(dateStr){return dateStr&&(new Date(dateStr)-new Date())<7*86400*1000}
+
+// ── Popup / Notifications ─────────────────────────────────────────────────────
+const POPUP_API = '/api/admin/popups';
+document.getElementById('popup-public-url').textContent = window.location.origin + '/api/popup';
+
+async function loadPopups() {
+  const {data} = await api('/popups');
+  const popups = data.popups || [];
+  document.getElementById('nb-popups').textContent = popups.length;
+  const tbody = document.getElementById('popups-body');
+  tbody.innerHTML = '';
+  if (!popups.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔔</div><p>Aucun popup créé</p></div></td></tr>`;
+    return;
+  }
+  const typeIcon = {announcement:'📢', maintenance:'⚠️', update:'🚀'};
+  popups.forEach(p => {
+    const tr = document.createElement('tr');
+    const statusBadge = p.is_active
+      ? `<span class="badge active">● Actif</span>`
+      : `<span class="badge inactive">● Inactif</span>`;
+    const forceBadge = p.force
+      ? `<span style="color:var(--red);font-size:.75rem;font-weight:600">FORCÉ</span>`
+      : `<span style="color:var(--text3);font-size:.75rem">—</span>`;
+    tr.innerHTML = `
+      <td class="mono" style="font-size:.78rem">${p.popup_id}</td>
+      <td>${typeIcon[p.type]||'📢'} ${p.type}</td>
+      <td class="name">${p.title}</td>
+      <td>${forceBadge}</td>
+      <td>${statusBadge}</td>
+      <td style="font-size:.74rem;color:var(--text3)">${fmtDateShort(p.created_at)}</td>
+      <td><div class="actions">
+        ${p.is_active
+          ? `<button class="btn btn-ghost btn-xs" onclick="deactivateAllPopups()">Désactiver</button>`
+          : `<button class="btn btn-success btn-xs" onclick="activatePopup(${p.id})">▶ Activer</button>`}
+        <button class="btn btn-ghost btn-xs" onclick="editPopup(${p.id})">Éditer</button>
+        <button class="btn btn-danger btn-xs" onclick="deletePopup(${p.id},'${p.popup_id}')">✕</button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function openAddPopup() {
+  document.getElementById('popup-modal-title').textContent = 'Nouveau popup';
+  document.getElementById('popup-edit-id').value = '';
+  ['p-id','p-title','p-message','p-btn-action','p-ver-cur','p-ver-new','p-dl-url','p-autoclose'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('p-btn-ok').value = 'Fermer';
+  document.getElementById('p-type').value = 'announcement';
+  document.getElementById('p-force').value = 'false';
+  document.getElementById('modal-popup').classList.remove('hidden');
+  document.getElementById('p-id').focus();
+}
+
+async function editPopup(id) {
+  const {data} = await api('/popups');
+  const p = (data.popups||[]).find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('popup-modal-title').textContent = 'Modifier le popup';
+  document.getElementById('popup-edit-id').value = id;
+  document.getElementById('p-id').value         = p.popup_id;
+  document.getElementById('p-type').value        = p.type;
+  document.getElementById('p-title').value        = p.title;
+  document.getElementById('p-message').value      = p.message || '';
+  document.getElementById('p-btn-ok').value       = p.button_ok || 'Fermer';
+  document.getElementById('p-btn-action').value   = p.button_action || '';
+  document.getElementById('p-ver-cur').value      = p.current_version || '';
+  document.getElementById('p-ver-new').value      = p.new_version || '';
+  document.getElementById('p-dl-url').value       = p.download_url || '';
+  document.getElementById('p-force').value        = p.force ? 'true' : 'false';
+  document.getElementById('p-autoclose').value    = p.auto_close_sec || '';
+  document.getElementById('modal-popup').classList.remove('hidden');
+}
+
+async function savePopup() {
+  const id = document.getElementById('popup-edit-id').value;
+  const payload = {
+    popup_id:        document.getElementById('p-id').value.trim(),
+    type:            document.getElementById('p-type').value,
+    title:           document.getElementById('p-title').value.trim(),
+    message:         document.getElementById('p-message').value.trim(),
+    button_ok:       document.getElementById('p-btn-ok').value.trim() || 'Fermer',
+    button_action:   document.getElementById('p-btn-action').value.trim() || null,
+    current_version: document.getElementById('p-ver-cur').value.trim() || null,
+    new_version:     document.getElementById('p-ver-new').value.trim() || null,
+    download_url:    document.getElementById('p-dl-url').value.trim() || null,
+    force:           document.getElementById('p-force').value === 'true',
+    auto_close_sec:  parseInt(document.getElementById('p-autoclose').value) || null,
+  };
+  if (!payload.popup_id || !payload.title) return toast('ID et titre requis', 'err');
+  const {ok, data} = id
+    ? await api(`/popups/${id}`, 'PATCH', payload)
+    : await api('/popups', 'POST', payload);
+  if (ok) { toast(id ? 'Popup mis à jour ✓' : 'Popup créé ✓', 'ok'); closeModal('modal-popup'); loadPopups(); }
+  else toast(data.error || 'Erreur', 'err');
+}
+
+async function activatePopup(id) {
+  const {ok, data} = await api(`/popups/${id}/activate`, 'POST');
+  if (ok) { toast('Popup activé — les apps l\'afficheront au prochain démarrage ✓', 'ok'); loadPopups(); }
+  else toast(data.error || 'Erreur', 'err');
+}
+
+async function deactivateAllPopups() {
+  const {ok} = await api('/popups/deactivate', 'POST');
+  if (ok) { toast('Tous les popups désactivés', 'info'); loadPopups(); }
+}
+
+async function deletePopup(id, popupId) {
+  if (!confirm(`Supprimer le popup "${popupId}" ?`)) return;
+  const {ok} = await api(`/popups/${id}`, 'DELETE');
+  if (ok) { toast('Supprimé', 'info'); loadPopups(); }
+}
+
+// ── Import Excel ──────────────────────────────────────────────────────────────
+let importData = [];
+
+function openImport() {
+  importData = [];
+  document.getElementById('import-file').value = '';
+  document.getElementById('import-filename').textContent = '';
+  document.getElementById('import-preview').classList.add('hidden');
+  document.getElementById('import-result').classList.add('hidden');
+  document.getElementById('import-btn').disabled = true;
+  document.getElementById('import-btn').textContent = 'Importer';
+  document.getElementById('modal-import').classList.remove('hidden');
+}
+
+function handleImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('import-filename').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      // Normalize date fields that SheetJS may parse as Date objects
+      rows.forEach(r => {
+        if (r.expiration_date instanceof Date) {
+          r.expiration_date = r.expiration_date.toISOString().split('T')[0];
+        } else if (r.expiration_date) {
+          r.expiration_date = String(r.expiration_date).trim() || null;
+        }
+      });
+      importData = rows;
+      showImportPreview(rows);
+    } catch(err) {
+      toast('Impossible de lire le fichier: ' + err.message, 'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showImportPreview(rows) {
+  const preview = document.getElementById('import-preview');
+  const tbody   = document.getElementById('import-preview-body');
+  const info    = document.getElementById('import-preview-info');
+  tbody.innerHTML = '';
+  document.getElementById('import-result').classList.add('hidden');
+  if (!rows.length) {
+    info.innerHTML = '<span style="color:var(--red)">Aucune ligne trouvée dans le fichier.</span>';
+    preview.classList.remove('hidden');
+    document.getElementById('import-btn').disabled = true;
+    return;
+  }
+  const valid   = rows.filter(r => r.mac_address).length;
+  const invalid = rows.length - valid;
+  info.innerHTML = `<strong style="color:var(--text)">${rows.length}</strong> ligne${rows.length>1?'s':''} détectée${rows.length>1?'s':''}`
+    + (invalid ? ` · <span style="color:var(--red)">${invalid} sans MAC (seront ignorées)</span>` : '');
+  const preview_rows = rows.slice(0, 100);
+  preview_rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${r.mac_address||'<span style="color:var(--red)">—</span>'}</td><td>${r.label||'—'}</td><td>${r.status||'active'}</td><td>${r.plan||'monthly'}</td><td>${r.max_connections||1}</td><td>${r.expiration_date||'<span style="color:var(--green);font-size:.75rem">∞</span>'}</td>`;
+    tbody.appendChild(tr);
+  });
+  if (rows.length > 100) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="6" style="text-align:center;color:var(--text3);font-size:.75rem;padding:10px">… et ${rows.length - 100} autres lignes</td>`;
+    tbody.appendChild(tr);
+  }
+  preview.classList.remove('hidden');
+  document.getElementById('import-btn').disabled = valid === 0;
+}
+
+async function doImport() {
+  if (!importData.length) return;
+  const btn = document.getElementById('import-btn');
+  btn.disabled = true; btn.textContent = 'Import en cours…';
+  const { ok, data } = await api('/devices/import', 'POST', { devices: importData });
+  btn.textContent = 'Importer'; btn.disabled = false;
+  const result = document.getElementById('import-result');
+  result.classList.remove('hidden');
+  if (ok) {
+    result.style.borderLeftColor = 'var(--green)';
+    result.innerHTML = `<strong style="color:var(--green)">✓ Import terminé</strong><br>
+      <span style="color:var(--text)">+${data.created}</span> créé${data.created!==1?'s':''} &nbsp;·&nbsp;
+      <span style="color:var(--text2)">${data.skipped} ignoré${data.skipped!==1?'s':''}</span> (MAC existant)
+      ${data.errors?.length ? `<br><span style="color:var(--red);font-size:.78rem">
+        ${data.errors.length} erreur${data.errors.length>1?'s':''} : ${data.errors.map(e=>e.row+' → '+e.reason).join(' · ')}</span>` : ''}`;
+    if (data.created > 0) { loadDevices(); loadDashboard(); }
+    toast(`${data.created} appareil${data.created!==1?'s':''} importé${data.created!==1?'s':''}`, 'ok');
+  } else {
+    result.style.borderLeftColor = 'var(--red)';
+    result.innerHTML = `<strong style="color:var(--red)">✕ Erreur</strong> : ${data.error||'Erreur inconnue'}`;
+  }
+}
+
+function downloadTemplate() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['mac_address','label','status','plan','max_connections','expiration_date','playlist_url','xtream_server','xtream_user','xtream_pass','notes'],
+    ['AA:BB:CC:DD:EE:FF','TV Salon','active','monthly',1,'2026-12-31','','','','',''],
+    ['11:22:33:44:55:66','TV Chambre','active','yearly',2,'','http://server.com/playlist.m3u','','','','Client VIP'],
+    ['DE:AD:BE:EF:12:34','TV Bureau','active','quarterly',1,'','','http://xtream.com:8080','user123','pass456','Xtream example'],
+  ]);
+  ws['!cols'] = [{wch:20},{wch:15},{wch:12},{wch:12},{wch:14},{wch:16},{wch:38},{wch:28},{wch:14},{wch:14},{wch:20}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Appareils');
+  XLSX.writeFile(wb, 'hotplayer_import_modele.xlsx');
+}
+</script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</body>
+</html>
