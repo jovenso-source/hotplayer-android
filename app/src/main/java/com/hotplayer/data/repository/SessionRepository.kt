@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.hotplayer.data.api.ActivateRequest
 import com.hotplayer.data.api.HotPlayerApi
 import com.hotplayer.data.api.PlaylistInfo
 import com.hotplayer.data.api.XtreamCategory
@@ -16,7 +15,7 @@ import com.hotplayer.data.api.XtreamLiveStream
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
-import com.hotplayer.utils.MacAddressHelper
+import com.hotplayer.security.DeviceIdentityManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -28,6 +27,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private data class ChannelCacheEntry(
     val credentialKey: String,
@@ -37,12 +38,15 @@ private data class ChannelCacheEntry(
 
 private val Context.dataStore by preferencesDataStore(name = "hotplayer_session")
 
-class SessionRepository(private val context: Context, private val api: HotPlayerApi) {
+@Singleton
+class SessionRepository @Inject constructor(
+    private val context: Context,
+    private val api: HotPlayerApi,
+    private val deviceRepo: DeviceRepository,
+    private val identity: DeviceIdentityManager
+) {
 
     companion object {
-        private val KEY_TOKEN          = stringPreferencesKey("token")
-        private val KEY_EXPIRES        = stringPreferencesKey("expires_at")
-        private val KEY_MAC            = stringPreferencesKey("mac")
         private val KEY_PLAN           = stringPreferencesKey("plan")
         private val KEY_LABEL          = stringPreferencesKey("label")
         private val KEY_M3U_URL        = stringPreferencesKey("m3u_url")
@@ -53,8 +57,7 @@ class SessionRepository(private val context: Context, private val api: HotPlayer
         private const val TAG          = "SessionRepo"
     }
 
-    private val macHelper = MacAddressHelper(context)
-    private val gson      = Gson()
+    private val gson = Gson()
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -76,32 +79,32 @@ class SessionRepository(private val context: Context, private val api: HotPlayer
         object None : PlaylistCredentials()
     }
 
-    // ── Activation ────────────────────────────────────────────────────────────
+    // ── Activation (délégation au DeviceRepository) ───────────────────────────
 
     sealed class ActivationResult {
         data class Success(val playlist: PlaylistInfo?) : ActivationResult()
         data class Failure(val code: String, val message: String) : ActivationResult()
+        object NotActivated : ActivationResult()
         object NetworkError : ActivationResult()
     }
 
+    /**
+     * Orchestre l'enregistrement + l'authentification via Device ID.
+     * Remplace l'ancienne logique basée sur l'adresse MAC.
+     */
     suspend fun activate(): ActivationResult {
-        val mac = macHelper.getDeviceMac()
-        return try {
-            val response = api.activate(
-                mac         = mac,
-                fingerprint = macHelper.getFingerprint(mac),
-                model       = macHelper.getDeviceModel(),
-                body        = ActivateRequest(mac)
-            )
-            if (response.isSuccessful) {
-                val body = response.body()!!
-                context.dataStore.edit { prefs ->
-                    prefs[KEY_TOKEN]   = body.token
-                    prefs[KEY_EXPIRES] = body.expiresAt
-                    prefs[KEY_MAC]     = mac
-                    prefs[KEY_PLAN]    = body.device.plan
-                    prefs[KEY_LABEL]   = body.device.label ?: ""
-                    body.playlist?.let { pl ->
+        // 1. S'assurer que l'appareil est enregistré côté serveur
+        if (!deviceRepo.registerIfNeeded()) return ActivationResult.NetworkError
+
+        // 2. Obtenir un token JWT
+        return when (val result = deviceRepo.authenticate()) {
+            is DeviceRepository.DeviceResult.Success -> {
+                val body = result.response
+                // Persister les infos playlist localement pour le cache
+                body.playlist?.let { pl ->
+                    context.dataStore.edit { prefs ->
+                        prefs[KEY_PLAN]          = body.device.plan
+                        prefs[KEY_LABEL]         = body.device.label ?: ""
                         prefs[KEY_PLAYLIST_TYPE] = pl.type
                         pl.toM3uUrl()?.let { prefs[KEY_M3U_URL] = it }
                         if (pl.type == "xtream") {
@@ -112,43 +115,28 @@ class SessionRepository(private val context: Context, private val api: HotPlayer
                     }
                 }
                 ActivationResult.Success(body.playlist)
-            } else {
-                val code = parseErrorCode(response.errorBody()?.string())
-                ActivationResult.Failure(code, errorMessage(code))
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Network error", e)
-            ActivationResult.NetworkError
+            is DeviceRepository.DeviceResult.Failure ->
+                ActivationResult.Failure(result.code, result.message)
+            DeviceRepository.DeviceResult.NotActivated ->
+                ActivationResult.NotActivated
+            DeviceRepository.DeviceResult.NetworkError ->
+                ActivationResult.NetworkError
         }
     }
 
-    suspend fun isSessionValid(): Boolean {
-        val prefs   = context.dataStore.data.first()
-        val token   = prefs[KEY_TOKEN]   ?: return false
-        val expires = prefs[KEY_EXPIRES] ?: return false
-        if (isExpired(expires)) return false
-        return try {
-            api.status(macHelper.getDeviceMac()).isSuccessful
-        } catch (_: Exception) { token.isNotBlank() }
-    }
+    suspend fun isSessionValid(): Boolean = deviceRepo.isSessionValid()
 
-    suspend fun sendHeartbeat(): Boolean {
-        val prefs = context.dataStore.data.first()
-        val token = prefs[KEY_TOKEN] ?: return false
-        return try {
-            api.heartbeat("Bearer $token", macHelper.getDeviceMac()).isSuccessful
-        } catch (_: Exception) { false }
-    }
+    suspend fun sendHeartbeat(): Boolean = deviceRepo.heartbeat()
 
     // ── Playlist credentials (refresh from server, fall back to cache) ────────
 
     suspend fun getPlaylistCredentials(): PlaylistCredentials {
         val prefs = context.dataStore.data.first()
-        val token = prefs[KEY_TOKEN]
-
+        val token = deviceRepo.getToken()
         if (token != null) {
             try {
-                val r = api.getPlaylist("Bearer $token", macHelper.getDeviceMac())
+                val r = api.getPlaylist("Bearer $token", identity.deviceId)
                 if (r.isSuccessful) {
                     val pl = r.body()!!
                     val oldCreds = fromCache(prefs)
@@ -415,9 +403,7 @@ class SessionRepository(private val context: Context, private val api: HotPlayer
     // ── Session ───────────────────────────────────────────────────────────────
 
     suspend fun logout() {
-        val prefs = context.dataStore.data.first()
-        val token = prefs[KEY_TOKEN]
-        try { token?.let { api.logout("Bearer $it", macHelper.getDeviceMac()) } } catch (_: Exception) {}
+        deviceRepo.logout()
         context.dataStore.edit { it.clear() }
     }
 
@@ -476,33 +462,15 @@ class SessionRepository(private val context: Context, private val api: HotPlayer
         is PlaylistCredentials.None   -> "none"
     }
 
-    val macAddress: String get() = macHelper.getDeviceMac()
+    /** Device ID exposé pour affichage dans les écrans de debug/admin. */
+    val deviceId: String get() = identity.deviceId
 
     fun getDeviceInfo(): Flow<Map<String, String>> =
         context.dataStore.data.map { prefs ->
             mapOf(
-                "mac"   to (prefs[KEY_MAC]   ?: macHelper.getDeviceMac()),
-                "plan"  to (prefs[KEY_PLAN]  ?: "—"),
-                "label" to (prefs[KEY_LABEL] ?: "")
+                "device_id" to identity.deviceId,
+                "plan"      to (prefs[KEY_PLAN]  ?: "—"),
+                "label"     to (prefs[KEY_LABEL] ?: "")
             )
         }
-
-    private fun isExpired(isoDate: String): Boolean = try {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        sdf.parse(isoDate)?.before(Date()) ?: true
-    } catch (_: Exception) { false }
-
-    private fun parseErrorCode(body: String?): String = try {
-        com.google.gson.JsonParser.parseString(body ?: "").asJsonObject["code"]?.asString ?: "UNKNOWN"
-    } catch (_: Exception) { "UNKNOWN" }
-
-    private fun errorMessage(code: String) = when (code) {
-        "NOT_FOUND"   -> "Appareil non enregistré. Contactez votre administrateur."
-        "INACTIVE"    -> "Appareil non activé. Contactez votre administrateur."
-        "SUSPENDED"   -> "Appareil suspendu. Contactez le support."
-        "EXPIRED"     -> "Abonnement expiré. Veuillez renouveler."
-        "INVALID_MAC" -> "Adresse MAC invalide."
-        else          -> "Accès refusé. Contactez votre administrateur."
-    }
 }

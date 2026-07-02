@@ -39,13 +39,18 @@ class ActivationActivity : AppCompatActivity() {
     private suspend fun activate() {
         showScreen(Screen.LOADING)
 
-        // Show MAC while loading
-        val mac = repo.macAddress
-        binding.macValue.text  = mac
-        binding.macValue2.text = mac
+        // Affiche le Device ID pendant le chargement
+        val deviceId = repo.deviceId
+        binding.macValue.text  = deviceId
+        binding.macValue2.text = deviceId
 
         when (val result = repo.activate()) {
             is SessionRepository.ActivationResult.Success -> goToHome()
+
+            is SessionRepository.ActivationResult.NotActivated -> {
+                showScreen(Screen.NOT_ACTIVATED)
+                binding.statusMessage.text = "Appareil enregistré, en attente d'activation. Contactez votre administrateur."
+            }
 
             is SessionRepository.ActivationResult.Failure -> {
                 showScreen(Screen.NOT_ACTIVATED)

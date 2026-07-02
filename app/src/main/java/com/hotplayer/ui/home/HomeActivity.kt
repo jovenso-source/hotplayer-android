@@ -32,7 +32,7 @@ import java.util.Locale
 data class ChannelCounts(val live: Int, val movies: Int, val radios: Int)
 
 class HomeViewModel(private val repo: SessionRepository) : ViewModel() {
-    fun getMac(): String = repo.macAddress
+    fun getDeviceId(): String = repo.deviceId
     fun sendHeartbeat() = viewModelScope.launch { repo.sendHeartbeat() }
 
     private val _counts = MutableLiveData<ChannelCounts>()
@@ -85,7 +85,7 @@ class HomeActivity : AppCompatActivity() {
         vm = ViewModelProvider(this, HomeViewModelFactory(HotPlayerApp.instance.sessionRepo))[HomeViewModel::class.java]
         setContentView(binding.root)
 
-        binding.tvMacFooter.text    = "MAC: ${vm.getMac()}"
+        binding.tvMacFooter.text    = "ID: ${vm.getDeviceId().take(8)}…"
         binding.tvVersionFooter.text = "v${com.hotplayer.BuildConfig.VERSION_NAME}"
 
         setupHeader()

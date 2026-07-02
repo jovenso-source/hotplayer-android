@@ -16,7 +16,7 @@ interface HotPlayerApi {
 
     @POST("auth/activate")
     suspend fun activate(
-        @Header("X-MAC-Address")        mac: String,
+        @Header("X-Device-ID")        deviceId: String,
         @Header("X-Device-Fingerprint") fingerprint: String,
         @Header("X-Device-Model")       model: String,
         @Body body: ActivateRequest
@@ -24,25 +24,25 @@ interface HotPlayerApi {
 
     @GET("auth/status")
     suspend fun status(
-        @Header("X-MAC-Address") mac: String
+        @Header("X-Device-ID") mac: String
     ): Response<StatusResponse>
 
     @POST("auth/heartbeat")
     suspend fun heartbeat(
         @Header("Authorization")        token: String,
-        @Header("X-MAC-Address")        mac: String
+        @Header("X-Device-ID")        deviceId: String
     ): Response<HeartbeatResponse>
 
     @POST("auth/logout")
     suspend fun logout(
         @Header("Authorization") token: String,
-        @Header("X-MAC-Address") mac: String
+        @Header("X-Device-ID") mac: String
     ): Response<Unit>
 
     @GET("stream/playlist")
     suspend fun getPlaylist(
         @Header("Authorization") token: String,
-        @Header("X-MAC-Address") mac: String
+        @Header("X-Device-ID") mac: String
     ): Response<StreamPlaylistResponse>
 }
 
