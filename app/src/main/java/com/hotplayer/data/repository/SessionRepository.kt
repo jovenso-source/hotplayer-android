@@ -97,33 +97,45 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * Point d'entrée principal — gère les deux cas :
+     * Validation serveur obligatoire à chaque lancement.
      *
-     *  CAS A — Ancien client (mise à jour depuis MAC) :
-     *   `isMigrated()` = false → appelle `POST /auth/activate` avec MAC
-     *   → serveur assigne un device_id → sauvegarde → migration terminée
+     *  CAS A — Appareil ancien (MAC en base, pas encore migré) :
+     *   Envoie MAC + Device ID → serveur lie l'UUID à l'entrée MAC → marque migré
      *
-     *  CAS B — Nouveau client / déjà migré :
-     *   `isMigrated()` = true → appelle `POST /device/register` + `/device/authenticate`
+     *  CAS B — Flux principal v1.5.2+ :
+     *   Envoie uniquement X-Device-ID (pas de MAC) → serveur valide UUID → retourne token
      *
-     * L'utilisateur ne voit rien, aucune reconnexion nécessaire.
+     * Aucun cache local : si le serveur est injoignable, accès refusé.
      */
     suspend fun activate(): ActivationResult {
-        // ── CAS A : migration nécessaire ────────────────────────────────────
+        // CAS A : migration transparente pour les appareils enregistrés par MAC
         if (!deviceRepo.isMigrated()) {
             val migrationResult = attemptLegacyMigration()
             if (migrationResult != null) return migrationResult
-            // Si migration échoue (ancien backend indisponible ou appareil inconnu)
-            // → tenter le nouveau flux pour les nouveaux appareils
+            // MAC inconnu du serveur → l'appareil a été enregistré par UUID, continuer en CAS B
         }
 
-        // ── CAS B : nouveau flux Device ID ──────────────────────────────────
-        if (!deviceRepo.registerIfNeeded()) return ActivationResult.NetworkError
+        // CAS B : authentification par Device ID uniquement — aucune MAC
+        return try {
+            val response = api.activate(
+                deviceId    = identity.deviceId,
+                fingerprint = identity.deviceFingerprint,
+                model       = identity.deviceModel,
+                body        = ActivateRequest(mac = "")   // chaîne vide = pas de MAC
+            )
+            if (response.isSuccessful) {
+                val body = response.body()!!
+                val serverDeviceId = body.deviceId
+                if (!serverDeviceId.isNullOrBlank() && serverDeviceId != identity.deviceId)
+                    identity.assignServerDeviceId(serverDeviceId)
 
-        return when (val result = deviceRepo.authenticate()) {
-            is DeviceRepository.DeviceResult.Success -> {
-                val body = result.response
-                // Persister les infos playlist localement pour le cache
+                deviceRepo.completeLegacyMigration(
+                    token     = body.token,
+                    expiresAt = body.expiresAt,
+                    sessionId = body.sessionId,
+                    plan      = body.device.plan,
+                    label     = body.device.label ?: ""
+                )
                 body.playlist?.let { pl ->
                     context.dataStore.edit { prefs ->
                         prefs[KEY_PLAN]          = body.device.plan
@@ -139,14 +151,25 @@ class SessionRepository @Inject constructor(
                     }
                 }
                 ActivationResult.Success(body.playlist)
+            } else {
+                val code = parseErrorCode(response.errorBody()?.string())
+                when (code) {
+                    "NOT_FOUND", "INACTIVE" -> ActivationResult.NotActivated
+                    else -> ActivationResult.Failure(code, errorMessage(code))
+                }
             }
-            is DeviceRepository.DeviceResult.Failure ->
-                ActivationResult.Failure(result.code, result.message)
-            DeviceRepository.DeviceResult.NotActivated ->
-                ActivationResult.NotActivated
-            DeviceRepository.DeviceResult.NetworkError ->
-                ActivationResult.NetworkError
+        } catch (e: Exception) {
+            Log.w(TAG, "UUID auth error: ${e.message}")
+            ActivationResult.NetworkError
         }
+    }
+
+    private fun errorMessage(code: String) = when (code) {
+        "NOT_FOUND"  -> "Appareil non enregistré. Contactez votre administrateur."
+        "INACTIVE"   -> "Appareil non activé. Contactez votre administrateur."
+        "SUSPENDED"  -> "Appareil suspendu. Contactez le support."
+        "EXPIRED"    -> "Abonnement expiré. Veuillez renouveler."
+        else         -> "Accès refusé. Contactez votre administrateur."
     }
 
     /**
@@ -236,9 +259,12 @@ class SessionRepository @Inject constructor(
         }
     }
 
-    suspend fun isSessionValid(): Boolean = deviceRepo.isSessionValid()
-
-    suspend fun sendHeartbeat(): Boolean = deviceRepo.heartbeat()
+    suspend fun sendHeartbeat(): Boolean {
+        val token = deviceRepo.getToken() ?: return false
+        return try {
+            api.heartbeat("Bearer $token", identity.deviceId).isSuccessful
+        } catch (_: Exception) { false }
+    }
 
     // ── Playlist credentials (refresh from server, fall back to cache) ────────
 

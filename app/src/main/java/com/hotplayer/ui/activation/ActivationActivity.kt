@@ -23,16 +23,10 @@ class ActivationActivity : AppCompatActivity() {
         checkActivation()
     }
 
-    /* ── Check existing session first ── */
+    /* ── Always validate against server on every launch ── */
     private fun checkActivation() {
         showScreen(Screen.LOADING)
-        lifecycleScope.launch {
-            if (repo.isSessionValid()) {
-                goToHome()
-            } else {
-                activate()
-            }
-        }
+        lifecycleScope.launch { activate() }
     }
 
     /* ── Attempt activation ── */
