@@ -27,7 +27,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadInfo() {
         lifecycleScope.launch {
             val info = repo.getDeviceInfo().first()
-            binding.tvMacValue.text     = info["mac"]  ?: "—"
+            binding.tvMacValue.text     = info["device_id"] ?: "—"
             binding.tvPlanValue.text    = info["plan"]?.replaceFirstChar { it.uppercase() } ?: "—"
             binding.tvVersionValue.text = BuildConfig.VERSION_NAME
         }

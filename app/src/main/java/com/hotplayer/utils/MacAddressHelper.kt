@@ -8,7 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.net.NetworkInterface
 import java.security.MessageDigest
 import java.util.Locale
@@ -18,65 +18,28 @@ private val Context.dataStore by preferencesDataStore(name = "hotplayer_prefs")
 class MacAddressHelper(private val context: Context) {
 
     companion object {
-        private val KEY_MAC         = stringPreferencesKey("device_mac")
-        private val KEY_FINGERPRINT = stringPreferencesKey("device_fingerprint")
+        private val KEY_MAC = stringPreferencesKey("device_mac")
     }
 
-    // FIX #1 (CRITICAL — DEADLOCK PREVENTION):
-    // getDeviceMac() and getFingerprint() are called from suspend functions running on
-    // Dispatchers.Main (viewModelScope). The previous runBlocking{} blocked the main thread
-    // while DataStore dispatched work — on slow devices this caused a deadlock / ANR that
-    // Android resolved by killing the process (the "app closes by itself" crash).
-    //
-    // Fix strategy:
-    //   1. Cache the value in memory (@Volatile) — only the very first call hits DataStore.
-    //   2. Force that first call onto Dispatchers.IO via runBlocking(Dispatchers.IO), so the
-    //      main thread is never blocked waiting for DataStore IO.
-    //
-    @Volatile private var cachedMac: String?         = null
-    @Volatile private var cachedFingerprint: String? = null
+    @Volatile private var cachedMac: String? = null
 
-    fun getDeviceMac(): String =
+    /**
+     * Returns the device MAC address for legacy authentication only.
+     * New devices use DeviceIdentityManager (UUID-based). This class exists solely to
+     * support CAS A migration for devices registered before v1.5.2.
+     */
+    @Deprecated("Use DeviceIdentityManager for device identification. MAC lookup is for legacy migration only.")
+    suspend fun getDeviceMac(): String =
         cachedMac ?: initMac().also { cachedMac = it }
 
-    fun getFingerprint(mac: String): String =
-        cachedFingerprint ?: initFingerprint(mac).also { cachedFingerprint = it }
+    // ─── Private initializer ──────────────────────────────────────────────────
 
-    fun getDeviceModel(): String =
-        "${Build.MANUFACTURER} ${Build.MODEL}".trim()
-
-    // ─── Private initializers (called at most once each) ──────────────────────
-
-    private fun initMac(): String = runBlocking(Dispatchers.IO) {
-        // Try persisted value first (fastest path on subsequent cold starts)
+    private suspend fun initMac(): String = withContext(Dispatchers.IO) {
         val saved = context.dataStore.data.first()[KEY_MAC]
-        if (!saved.isNullOrBlank()) return@runBlocking saved
-
+        if (!saved.isNullOrBlank()) return@withContext saved
         val mac = getRealMac() ?: generateStableMac()
-        try {
-            context.dataStore.edit { it[KEY_MAC] = mac }
-        } catch (_: Exception) {}
+        try { context.dataStore.edit { it[KEY_MAC] = mac } } catch (_: Exception) {}
         mac
-    }
-
-    private fun initFingerprint(mac: String): String = runBlocking(Dispatchers.IO) {
-        val saved = context.dataStore.data.first()[KEY_FINGERPRINT]
-        if (!saved.isNullOrBlank()) return@runBlocking saved
-
-        val raw = buildString {
-            append(mac); append("|")
-            append(Build.MANUFACTURER); append("|")
-            append(Build.MODEL); append("|")
-            @Suppress("DEPRECATION")
-            append(Build.SERIAL.take(8)); append("|")
-            append(Build.BOARD); append("|")
-            append(Build.HARDWARE)
-        }
-        val fp = sha256(raw).take(32)
-        try {
-            context.dataStore.edit { it[KEY_FINGERPRINT] = fp }
-        } catch (_: Exception) {}
-        fp
     }
 
     // ─── Hardware MAC detection ───────────────────────────────────────────────

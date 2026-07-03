@@ -3,7 +3,7 @@ package com.hotplayer.data.api
 import com.google.gson.annotations.SerializedName
 
 data class ActivateRequest(
-    @SerializedName("mac") val mac: String
+    @SerializedName("mac") val mac: String?   // null = UUID-only auth (no MAC sent)
 )
 
 data class ActivateResponse(

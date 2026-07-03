@@ -1,7 +1,6 @@
 package com.hotplayer.di
 
 import com.hotplayer.BuildConfig
-import com.hotplayer.data.api.DeviceApiService
 import com.hotplayer.data.api.HotPlayerApi
 import dagger.Module
 import dagger.Provides
@@ -45,8 +44,4 @@ object NetworkModule {
     @Provides @Singleton
     fun provideHotPlayerApi(retrofit: Retrofit): HotPlayerApi =
         retrofit.create(HotPlayerApi::class.java)
-
-    @Provides @Singleton
-    fun provideDeviceApiService(retrofit: Retrofit): DeviceApiService =
-        retrofit.create(DeviceApiService::class.java)
 }

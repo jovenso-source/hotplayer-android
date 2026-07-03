@@ -540,7 +540,11 @@ class SessionRepository @Inject constructor(
     // ── Session ───────────────────────────────────────────────────────────────
 
     suspend fun logout() {
-        deviceRepo.logout()
+        val token = deviceRepo.getToken()
+        if (token != null) {
+            try { api.logout("Bearer $token", identity.deviceId) } catch (_: Exception) {}
+        }
+        deviceRepo.clearLocalSession()
         context.dataStore.edit { it.clear() }
     }
 
