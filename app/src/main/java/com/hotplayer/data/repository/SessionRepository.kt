@@ -227,6 +227,8 @@ class SessionRepository @Inject constructor(
                     }
                 }
 
+                context.dataStore.edit { prefs -> prefs.remove(KEY_MAC_LEGACY) }
+
                 Log.i(TAG, "Legacy migration successful")
                 ActivationResult.Success(body.playlist)
 
