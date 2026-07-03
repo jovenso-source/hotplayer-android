@@ -1,8 +1,10 @@
 package com.hotplayer.ui.popup
 
 import android.app.Dialog
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -19,6 +21,7 @@ import com.hotplayer.data.model.PopupConfig
 import com.hotplayer.data.model.PopupResponse
 import com.hotplayer.databinding.DialogPopupBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -201,7 +204,7 @@ object PopupManager {
         }
     }
 
-    // ─── Download via OkHttp ───────────────────────────────────────────────────
+    // ─── Download via DownloadManager (système Android) ──────────────────────
 
     private fun startDownload(
         activity: AppCompatActivity,
@@ -210,86 +213,96 @@ object PopupManager {
         config: PopupConfig,
         url: String
     ) {
+        val dm = activity.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+        if (dm == null) {
+            Toast.makeText(activity, "Téléchargement non supporté sur cet appareil.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val destFile = File(
+            activity.getExternalFilesDir(null) ?: activity.cacheDir,
+            "hotplayer_update.apk"
+        )
+        if (destFile.exists()) destFile.delete()
+
+        val downloadId = try {
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle("HotPlayer mise à jour")
+                .setDescription("Téléchargement en cours…")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                .setDestinationUri(Uri.fromFile(destFile))
+                .addRequestHeader("User-Agent", "HotPlayer/1.0 Android")
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(true)
+            dm.enqueue(request)
+        } catch (e: Exception) {
+            Toast.makeText(activity, "Impossible de démarrer le téléchargement : ${e.message}", Toast.LENGTH_LONG).show()
+            return
+        }
+
         binding.btnPopupPrimary.isEnabled = false
         binding.btnPopupPrimary.text      = "Téléchargement…"
         binding.layoutProgress.visibility = View.VISIBLE
 
-        val destFile = File(
-            activity.getExternalFilesDir(null) ?: activity.cacheDir,
-            "freebox_update.apk"
-        )
-
         activity.lifecycleScope.launch {
-            try {
-                downloadApk(url, destFile) { pct ->
+            var running = true
+            while (running) {
+                delay(600)
+                val cursor: Cursor? = try {
+                    dm.query(DownloadManager.Query().setFilterById(downloadId))
+                } catch (_: Exception) { null }
+
+                if (cursor == null || !cursor.moveToFirst()) {
+                    cursor?.close()
+                    continue
+                }
+
+                val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val bytesIdx  = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                val totalIdx  = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                val status = if (statusIdx >= 0) cursor.getInt(statusIdx) else -1
+                val bytes  = if (bytesIdx  >= 0) cursor.getLong(bytesIdx)  else 0L
+                val total  = if (totalIdx  >= 0) cursor.getLong(totalIdx)  else -1L
+                cursor.close()
+
+                if (total > 0) {
+                    val pct = (bytes * 100 / total).toInt().coerceIn(0, 100)
                     binding.pbDownload.progress    = pct
                     binding.tvProgressPercent.text = "$pct%"
                 }
-                // Téléchargement terminé : proposer l'installation sans marquer comme vu
-                binding.pbDownload.progress       = 100
-                binding.tvProgressPercent.text    = "100%"
-                binding.layoutProgress.visibility = View.GONE
-                binding.btnPopupPrimary.isEnabled = true
-                binding.btnPopupPrimary.text      = "Installer maintenant"
-                binding.btnPopupPrimary.requestFocus()
-                binding.btnPopupPrimary.setOnClickListener {
-                    // Ne PAS marquer comme vu ici — l'installation peut être annulée.
-                    // La mise à jour sera marquée "vu" au prochain lancement
-                    // uniquement si la nouvelle version est réellement installée.
-                    dialog.dismiss()
-                    installApk(activity, destFile)
-                }
-            } catch (e: Exception) {
-                binding.layoutProgress.visibility = View.GONE
-                binding.btnPopupPrimary.isEnabled = true
-                binding.btnPopupPrimary.text      = config.buttonAction ?: "Réessayer"
-                Toast.makeText(
-                    activity,
-                    "Échec du téléchargement. Vérifiez votre connexion.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }
 
-    private suspend fun downloadApk(url: String, dest: File, onProgress: (Int) -> Unit) =
-        withContext(Dispatchers.IO) {
-            if (dest.exists()) dest.delete()
-            val client = http.newBuilder().readTimeout(10, TimeUnit.MINUTES).build()
-            val req = Request.Builder()
-                .url(url)
-                .header("Accept-Encoding", "identity") // désactive gzip auto pour télécharger le binaire brut
-                .build()
-            client.newCall(req).execute().use { response ->
-                if (!response.isSuccessful) throw IOException("Erreur serveur HTTP ${response.code}")
-                val body  = response.body ?: throw IOException("Corps vide")
-                val total = body.contentLength()
-                var downloaded = 0L
-                dest.outputStream().buffered().use { out ->
-                    body.byteStream().use { input ->
-                        val buffer = ByteArray(8192)
-                        var n: Int
-                        while (input.read(buffer).also { n = it } != -1) {
-                            out.write(buffer, 0, n)
-                            downloaded += n
-                            val pct = if (total > 0) (downloaded * 100 / total).toInt() else 0
-                            withContext(Dispatchers.Main) { onProgress(pct) }
+                when (status) {
+                    DownloadManager.STATUS_SUCCESSFUL -> {
+                        running = false
+                        binding.pbDownload.progress    = 100
+                        binding.tvProgressPercent.text = "100%"
+                        binding.layoutProgress.visibility = View.GONE
+                        binding.btnPopupPrimary.isEnabled = true
+                        binding.btnPopupPrimary.text      = "Installer maintenant"
+                        binding.btnPopupPrimary.requestFocus()
+                        binding.btnPopupPrimary.setOnClickListener {
+                            dialog.dismiss()
+                            installApk(activity, destFile)
                         }
+                    }
+                    DownloadManager.STATUS_FAILED -> {
+                        running = false
+                        val reasonIdx = try {
+                            dm.query(DownloadManager.Query().setFilterById(downloadId))
+                                .use { c -> if (c.moveToFirst()) c.getInt(c.getColumnIndex(DownloadManager.COLUMN_REASON)) else -1 }
+                        } catch (_: Exception) { -1 }
+                        binding.layoutProgress.visibility = View.GONE
+                        binding.btnPopupPrimary.isEnabled = true
+                        binding.btnPopupPrimary.text      = config.buttonAction ?: "Réessayer"
+                        Toast.makeText(activity, "Échec du téléchargement (code $reasonIdx).", Toast.LENGTH_LONG).show()
+                    }
+                    DownloadManager.STATUS_PAUSED -> {
+                        binding.tvProgressPercent.text = "En attente…"
                     }
                 }
             }
-            // Valider la signature ZIP : tout APK valide commence par PK\x03\x04
-            val header = ByteArray(4)
-            dest.inputStream().use { it.read(header) }
-            if (header.size < 4 ||
-                header[0] != 0x50.toByte() || header[1] != 0x4B.toByte() ||
-                header[2] != 0x03.toByte() || header[3] != 0x04.toByte()
-            ) {
-                val sizeKb = dest.length() / 1024
-                dest.delete()
-                throw IOException("Fichier invalide (${sizeKb} Ko) — le serveur n'a pas renvoyé un APK")
-            }
         }
+    }
 
     // ─── APK install ───────────────────────────────────────────────────────────
 
