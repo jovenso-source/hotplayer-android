@@ -14,8 +14,8 @@ android {
         applicationId "com.hotplayer"
         minSdk 21
         targetSdk 35
-        versionCode 10500
-        versionName "1.5.0"
+        versionCode 10501
+        versionName "1.5.1"
         buildConfigField "String", "API_BASE_URL", '"https://hotplayer-backend-production.up.railway.app/api"'
     }
 

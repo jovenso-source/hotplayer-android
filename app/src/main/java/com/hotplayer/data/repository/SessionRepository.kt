@@ -56,6 +56,7 @@ class SessionRepository @Inject constructor(
         private val KEY_XTREAM_SERVER  = stringPreferencesKey("xtream_server")
         private val KEY_XTREAM_USER    = stringPreferencesKey("xtream_user")
         private val KEY_XTREAM_PASS    = stringPreferencesKey("xtream_pass")
+        private val KEY_EXPIRY_DATE    = stringPreferencesKey("expiration_date")
         // Clés legacy : présentes dans l'ancien DataStore "hotplayer_session" sur les appareils migrés.
         // Utilisées UNIQUEMENT pour lire l'ancienne MAC enregistrée, puis supprimées.
         private val KEY_MAC_LEGACY     = stringPreferencesKey("mac")
@@ -127,6 +128,7 @@ class SessionRepository @Inject constructor(
                     context.dataStore.edit { prefs ->
                         prefs[KEY_PLAN]          = body.device.plan
                         prefs[KEY_LABEL]         = body.device.label ?: ""
+                        prefs[KEY_EXPIRY_DATE]   = body.device.expirationDate ?: ""
                         prefs[KEY_PLAYLIST_TYPE] = pl.type
                         pl.toM3uUrl()?.let { prefs[KEY_M3U_URL] = it }
                         if (pl.type == "xtream") {
@@ -200,6 +202,7 @@ class SessionRepository @Inject constructor(
                     context.dataStore.edit { prefs ->
                         prefs[KEY_PLAN]          = body.device.plan
                         prefs[KEY_LABEL]         = body.device.label ?: ""
+                        prefs[KEY_EXPIRY_DATE]   = body.device.expirationDate ?: ""
                         prefs[KEY_PLAYLIST_TYPE] = pl.type
                         pl.toM3uUrl()?.let { prefs[KEY_M3U_URL] = it }
                         if (pl.type == "xtream") {
@@ -589,8 +592,9 @@ class SessionRepository @Inject constructor(
         context.dataStore.data.map { prefs ->
             mapOf(
                 "device_id" to identity.deviceId,
-                "plan"      to (prefs[KEY_PLAN]  ?: "—"),
-                "label"     to (prefs[KEY_LABEL] ?: "")
+                "plan"      to (prefs[KEY_PLAN]       ?: "—"),
+                "label"     to (prefs[KEY_LABEL]      ?: ""),
+                "expiry"    to (prefs[KEY_EXPIRY_DATE] ?: "")
             )
         }
 }

@@ -1,6 +1,7 @@
 package com.hotplayer.ui.home
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -23,13 +24,17 @@ import com.hotplayer.ui.popup.PopupManager
 import com.hotplayer.ui.settings.SettingsActivity
 import com.hotplayer.ui.sports.SportsActivity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 data class ChannelCounts(val live: Int, val movies: Int, val radios: Int)
+
+data class DeviceDisplay(val label: String, val expiry: String, val expiryColor: Int)
 
 class HomeViewModel(private val repo: SessionRepository) : ViewModel() {
     fun getDeviceId(): String = repo.deviceId
@@ -37,6 +42,48 @@ class HomeViewModel(private val repo: SessionRepository) : ViewModel() {
 
     private val _counts = MutableLiveData<ChannelCounts>()
     val counts: LiveData<ChannelCounts> = _counts
+
+    private val _device = MutableLiveData<DeviceDisplay?>()
+    val device: LiveData<DeviceDisplay?> = _device
+
+    fun loadDeviceInfo() = viewModelScope.launch {
+        val info   = repo.getDeviceInfo().first()
+        val label  = info["label"]?.takeIf { it.isNotBlank() } ?: return@launch
+        val expiry = info["expiry"] ?: ""
+        _device.value = DeviceDisplay(label, formatExpiry(expiry), expiryColor(expiry))
+    }
+
+    private fun formatExpiry(iso: String): String {
+        if (iso.isBlank()) return ""
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val date = sdf.parse(iso.take(10)) ?: return ""
+            val daysLeft = TimeUnit.MILLISECONDS.toDays(date.time - System.currentTimeMillis())
+            when {
+                daysLeft < 0  -> "Abonnement expiré"
+                daysLeft == 0L -> "Expire aujourd'hui"
+                daysLeft <= 7 -> "Expire dans $daysLeft jour${if (daysLeft > 1) "s" else ""}"
+                else -> {
+                    val out = SimpleDateFormat("dd MMM yyyy", Locale.FRENCH)
+                    "Expire le ${out.format(date)}"
+                }
+            }
+        } catch (_: Exception) { "" }
+    }
+
+    private fun expiryColor(iso: String): Int {
+        if (iso.isBlank()) return Color.parseColor("#6b7894")
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val date = sdf.parse(iso.take(10)) ?: return Color.parseColor("#6b7894")
+            val daysLeft = TimeUnit.MILLISECONDS.toDays(date.time - System.currentTimeMillis())
+            when {
+                daysLeft < 0  -> Color.parseColor("#e53e3e")
+                daysLeft <= 7 -> Color.parseColor("#f5a623")
+                else          -> Color.parseColor("#48bb78")
+            }
+        } catch (_: Exception) { Color.parseColor("#6b7894") }
+    }
 
     fun loadCounts() = viewModelScope.launch {
         val creds = repo.getPlaylistCredentials()
@@ -93,6 +140,7 @@ class HomeActivity : AppCompatActivity() {
         setupFocus()
         updateClock()
         observeCounts()
+        observeDevice()
 
         binding.cardLive.post { binding.cardLive.requestFocus() }
 
@@ -100,6 +148,7 @@ class HomeActivity : AppCompatActivity() {
         clockHandler.postDelayed(clockRunnable, 10_000)
 
         vm.loadCounts()
+        vm.loadDeviceInfo()
 
         lifecycleScope.launch { PopupManager.checkAndShow(this@HomeActivity) }
         com.hotplayer.ui.popup.WhatsNewManager.checkAndShow(this)
@@ -115,6 +164,21 @@ class HomeActivity : AppCompatActivity() {
         binding.tvClock.text = "%02d:%02d".format(h, m)
         val sdf = SimpleDateFormat("EEEE, MMM d", Locale.ENGLISH)
         binding.tvDate.text = sdf.format(Date()).replaceFirstChar { it.uppercaseChar() }
+    }
+
+    // ─── Device info ───────────────────────────────────────────────────────────
+
+    private fun observeDevice() {
+        vm.device.observe(this) { d ->
+            if (d == null) return@observe
+            binding.tvUserName.text       = d.label
+            binding.tvUserName.visibility = View.VISIBLE
+            if (d.expiry.isNotBlank()) {
+                binding.tvExpiry.text       = d.expiry
+                binding.tvExpiry.setTextColor(d.expiryColor)
+                binding.tvExpiry.visibility = View.VISIBLE
+            }
+        }
     }
 
     // ─── Counts ────────────────────────────────────────────────────────────────
