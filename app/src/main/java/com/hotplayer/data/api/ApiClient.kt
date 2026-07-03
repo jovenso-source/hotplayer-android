@@ -16,10 +16,18 @@ interface HotPlayerApi {
 
     @POST("auth/activate")
     suspend fun activate(
-        @Header("X-Device-ID")        deviceId: String,
+        @Header("X-Device-ID")          deviceId: String,
         @Header("X-Device-Fingerprint") fingerprint: String,
         @Header("X-Device-Model")       model: String,
         @Body body: ActivateRequest
+    ): Response<ActivateResponse>
+
+    @POST("auth/migrate")
+    suspend fun migrate(
+        @Header("X-Device-ID")          deviceId: String,
+        @Header("X-Device-Fingerprint") fingerprint: String,
+        @Header("X-Device-Model")       model: String,
+        @Body body: MigrateRequest
     ): Response<ActivateResponse>
 
     @GET("auth/status")

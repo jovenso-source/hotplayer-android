@@ -1,6 +1,7 @@
 package com.hotplayer.data.repository
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -15,7 +16,9 @@ import com.hotplayer.data.api.XtreamLiveStream
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
+import com.hotplayer.BuildConfig
 import com.hotplayer.data.api.ActivateRequest
+import com.hotplayer.data.api.MigrateRequest
 import com.hotplayer.security.DeviceIdentityManager
 import com.hotplayer.utils.MacAddressHelper
 import kotlinx.coroutines.Dispatchers
@@ -154,7 +157,7 @@ class SessionRepository @Inject constructor(
             } else {
                 val code = parseErrorCode(response.errorBody()?.string())
                 when (code) {
-                    "NOT_FOUND", "INACTIVE" -> ActivationResult.NotActivated
+                    "NOT_FOUND", "INACTIVE", "DEVICE_INACTIVE" -> ActivationResult.NotActivated
                     else -> ActivationResult.Failure(code, errorMessage(code))
                 }
             }
@@ -165,53 +168,42 @@ class SessionRepository @Inject constructor(
     }
 
     private fun errorMessage(code: String) = when (code) {
-        "NOT_FOUND"  -> "Appareil non enregistré. Contactez votre administrateur."
-        "INACTIVE"   -> "Appareil non activé. Contactez votre administrateur."
-        "SUSPENDED"  -> "Appareil suspendu. Contactez le support."
-        "EXPIRED"    -> "Abonnement expiré. Veuillez renouveler."
-        else         -> "Accès refusé. Contactez votre administrateur."
+        "NOT_FOUND", "DEVICE_NOT_FOUND"   -> "Appareil non enregistré. Contactez votre administrateur."
+        "INACTIVE", "DEVICE_INACTIVE"     -> "Appareil non activé. Contactez votre administrateur."
+        "SUSPENDED", "DEVICE_SUSPENDED"   -> "Appareil suspendu. Contactez le support."
+        "EXPIRED", "SUBSCRIPTION_EXPIRED" -> "Abonnement expiré. Veuillez renouveler."
+        else                              -> "Accès refusé. Contactez votre administrateur."
     }
 
-    /**
-     * Tente la migration transparente depuis le système MAC.
-     *
-     * Étapes :
-     *  1. Récupère la MAC (depuis l'ancien DataStore si disponible, sinon MacAddressHelper)
-     *  2. Appelle `POST /auth/activate` avec la MAC + le device_id local proposé
-     *  3. Le serveur retourne un device_id (le sien ou le proposé)
-     *  4. Si le device_id retourné diffère du local → met à jour EncryptedSharedPreferences
-     *  5. Persiste le token, marque la migration comme terminée
-     *
-     * @return ActivationResult si la migration a réussi, null si elle doit être ignorée
-     *         (appareil inconnu du serveur → nouveau flux)
-     */
     private suspend fun attemptLegacyMigration(): ActivationResult? {
-        // Lire la MAC depuis l'ancien DataStore ou recalculer
         val savedMac = context.dataStore.data.first()[KEY_MAC_LEGACY]
         val mac      = savedMac?.takeIf { it.isNotBlank() } ?: macHelper.getDeviceMac()
+
+        if (mac.isBlank()) {
+            Log.i(TAG, "No MAC available, skipping legacy migration")
+            return null
+        }
 
         Log.i(TAG, "Attempting legacy migration for MAC: ${mac.take(8)}…")
 
         return try {
-            val response = api.activate(
+            val response = api.migrate(
                 deviceId    = identity.deviceId,
                 fingerprint = identity.deviceFingerprint,
                 model       = identity.deviceModel,
-                body        = ActivateRequest(mac = mac)
+                body        = MigrateRequest(
+                    mac                = mac,
+                    appVersion         = BuildConfig.VERSION_NAME,
+                    deviceModel        = Build.MODEL,
+                    deviceManufacturer = Build.MANUFACTURER,
+                    androidVersion     = Build.VERSION.RELEASE,
+                    deviceAbi          = Build.SUPPORTED_ABIS.firstOrNull()
+                )
             )
 
             if (response.isSuccessful) {
                 val body = response.body()!!
 
-                // Si le serveur retourne un device_id différent (l'appareil avait déjà un UUID),
-                // on adopte celui du serveur pour la cohérence
-                val serverDeviceId = body.deviceId
-                if (!serverDeviceId.isNullOrBlank() && serverDeviceId != identity.deviceId) {
-                    Log.i(TAG, "Server assigned different device_id, updating local store")
-                    identity.assignServerDeviceId(serverDeviceId)
-                }
-
-                // Persister le token dans le nouveau DataStore device_auth
                 deviceRepo.completeLegacyMigration(
                     token     = body.token,
                     expiresAt = body.expiresAt,
@@ -220,7 +212,6 @@ class SessionRepository @Inject constructor(
                     label     = body.device.label ?: ""
                 )
 
-                // Persister la playlist dans le DataStore session (pour le cache)
                 body.playlist?.let { pl ->
                     context.dataStore.edit { prefs ->
                         prefs[KEY_PLAN]          = body.device.plan
@@ -242,20 +233,16 @@ class SessionRepository @Inject constructor(
             } else {
                 val code = parseErrorCode(response.errorBody()?.string())
                 when (code) {
-                    // Appareil inconnu du serveur (n'était pas dans l'ancien backend)
-                    // → laisser le nouveau flux gérer (retourner null)
-                    "DEVICE_NOT_FOUND" -> {
-                        Log.i(TAG, "MAC not found on server, falling through to new flow")
+                    "DEVICE_NOT_FOUND", "INVALID_MAC" -> {
+                        Log.i(TAG, "MAC not found/invalid on server ($code), falling through to UUID flow")
                         null
                     }
-                    // Appareil connu mais bloqué → informer l'utilisateur
                     else -> ActivationResult.Failure(code, legacyErrorMessage(code))
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Legacy migration network error: ${e.message}")
-            // En cas d'erreur réseau, laisser le nouveau flux tenter sa chance
-            null
+            ActivationResult.NetworkError
         }
     }
 
@@ -608,11 +595,14 @@ class SessionRepository @Inject constructor(
     } catch (_: Exception) { "UNKNOWN" }
 
     private fun legacyErrorMessage(code: String) = when (code) {
-        "DEVICE_INACTIVE"  -> "Appareil non activé. Contactez votre administrateur."
-        "DEVICE_SUSPENDED" -> "Appareil suspendu. Contactez le support."
-        "DEVICE_REVOKED"   -> "Accès révoqué. Contactez votre administrateur."
-        "DEVICE_EXPIRED"   -> "Abonnement expiré. Veuillez renouveler."
-        else               -> "Accès refusé. Contactez votre administrateur."
+        "DEVICE_INACTIVE"      -> "Appareil non activé. Contactez votre administrateur."
+        "DEVICE_SUSPENDED"     -> "Appareil suspendu. Contactez le support."
+        "DEVICE_REVOKED"       -> "Accès révoqué. Contactez votre administrateur."
+        "DEVICE_EXPIRED",
+        "SUBSCRIPTION_EXPIRED" -> "Abonnement expiré. Veuillez renouveler."
+        "UUID_CONFLICT"        -> "Cette installation est liée à un autre identifiant. Contactez votre administrateur pour déverrouiller l'appareil."
+        "MIGRATION_ERROR"      -> "Erreur temporaire. Veuillez réessayer."
+        else                   -> "Accès refusé. Contactez votre administrateur."
     }
 
     /** Device ID exposé pour affichage dans les écrans de debug/admin. */

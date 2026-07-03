@@ -6,6 +6,15 @@ data class ActivateRequest(
     @SerializedName("mac") val mac: String?   // null = UUID-only auth (no MAC sent)
 )
 
+data class MigrateRequest(
+    @SerializedName("mac")                 val mac: String,
+    @SerializedName("app_version")         val appVersion: String?,
+    @SerializedName("device_model")        val deviceModel: String?,
+    @SerializedName("device_manufacturer") val deviceManufacturer: String?,
+    @SerializedName("android_version")     val androidVersion: String?,
+    @SerializedName("device_abi")          val deviceAbi: String?
+)
+
 data class ActivateResponse(
     @SerializedName("success")     val success: Boolean,
     @SerializedName("token")       val token: String,
