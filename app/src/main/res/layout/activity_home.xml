@@ -166,7 +166,8 @@
             <!-- ═══ LIVE TV ═══ -->
             <FrameLayout
                 android:id="@+id/cardLive"
-                android:layout_width="220dp"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="260dp"
                 android:background="@drawable/bg_home_card"
                 android:foreground="@drawable/bg_home_card_focus"
@@ -261,7 +262,8 @@
             <!-- ═══ SPORTS ═══ -->
             <FrameLayout
                 android:id="@+id/cardSports"
-                android:layout_width="220dp"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="260dp"
                 android:background="@drawable/bg_home_card"
                 android:foreground="@drawable/bg_home_card_focus"
@@ -371,7 +373,8 @@
             <!-- ═══ MOVIES ═══ -->
             <FrameLayout
                 android:id="@+id/cardFilms"
-                android:layout_width="220dp"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="260dp"
                 android:background="@drawable/bg_home_card"
                 android:foreground="@drawable/bg_home_card_focus"
