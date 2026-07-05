@@ -399,7 +399,8 @@ class SessionRepository @Inject constructor(
 
                 Log.d(TAG, "Xtream: ${streams.size} streams, ${cats.size} categories")
 
-                streams.mapIndexedNotNull { idx, s ->
+                // Build channels in get_live_streams order (correct for channel ordering)
+                val rawChannels = streams.mapIndexedNotNull { idx, s ->
                     val id  = s.streamId ?: return@mapIndexedNotNull null
                     val nm  = s.name?.trim()?.takeIf { it.isNotEmpty() } ?: "Channel ${idx + 1}"
                     val grp = catMap[s.categoryId ?: ""]
@@ -415,6 +416,13 @@ class SessionRepository @Inject constructor(
                         type  = ChannelType.LIVE
                     )
                 }
+
+                // Reorder: categories in get_live_categories order, channels within each
+                // category in get_live_streams order. buildIndex() derives category order
+                // from first-occurrence — so the input list order must reflect cat order.
+                val byCatName = rawChannels.groupBy { it.group }
+                cats.flatMap { cat -> byCatName[cat.name] ?: emptyList() } +
+                    (byCatName[null] ?: emptyList())
             } catch (e: Throwable) {
                 Log.e(TAG, "Xtream failed: ${e.message}")
                 emptyList()
