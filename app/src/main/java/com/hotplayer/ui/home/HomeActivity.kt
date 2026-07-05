@@ -2,6 +2,8 @@ package com.hotplayer.ui.home
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -138,6 +140,7 @@ class HomeActivity : AppCompatActivity() {
         setupHeader()
         setupCards()
         setupFocus()
+        setupWelcome()
         updateClock()
         observeCounts()
         observeDevice()
@@ -153,6 +156,41 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch { PopupManager.checkAndShow(this@HomeActivity) }
         com.hotplayer.ui.popup.WhatsNewManager.checkAndShow(this)
         SportCardManager.bind(this, binding)
+    }
+
+    // ─── Welcome block ─────────────────────────────────────────────────────────
+
+    private fun setupWelcome() {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        binding.tvWelcomeGreeting.text = when {
+            hour in 5..11  -> "🌅 Bonjour,"
+            hour in 12..17 -> "☀️ Bon après-midi,"
+            else           -> "🌙 Bonsoir,"
+        }
+        binding.welcomeBlock.animate()
+            .alpha(1f)
+            .setDuration(280)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+    }
+
+    private fun applyNameGradient() {
+        val tv = binding.tvWelcomeName
+        tv.post {
+            val w = tv.width.toFloat()
+            if (w > 0f) {
+                tv.paint.shader = LinearGradient(
+                    0f, 0f, w, 0f,
+                    intArrayOf(
+                        Color.parseColor("#818CF8"),
+                        Color.parseColor("#38BDF8")
+                    ),
+                    null,
+                    Shader.TileMode.CLAMP
+                )
+                tv.invalidate()
+            }
+        }
     }
 
     // ─── Clock ─────────────────────────────────────────────────────────────────
@@ -178,6 +216,10 @@ class HomeActivity : AppCompatActivity() {
                 binding.tvExpiry.setTextColor(d.expiryColor)
                 binding.tvExpiry.visibility = View.VISIBLE
             }
+            val firstName = d.label.trim().split(Regex("\\s+")).first()
+                .replaceFirstChar { it.uppercaseChar() }
+            binding.tvWelcomeName.text = firstName
+            applyNameGradient()
         }
     }
 

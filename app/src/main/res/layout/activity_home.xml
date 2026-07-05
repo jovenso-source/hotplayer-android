@@ -146,12 +146,67 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal"
-        android:gravity="center"
+        android:orientation="vertical"
         android:paddingLeft="40dp"
         android:paddingRight="36dp"
+        android:paddingBottom="24dp"
         android:clipChildren="false"
         android:clipToPadding="false">
+
+        <!-- ══════════ WELCOME BLOCK ══════════ -->
+        <LinearLayout
+            android:id="@+id/welcomeBlock"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:alpha="0">
+
+            <TextView
+                android:id="@+id/tvWelcomeGreeting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Bonjour,"
+                android:textSize="17sp"
+                android:textColor="#94A3B8"
+                android:letterSpacing="0.02"/>
+
+            <TextView
+                android:id="@+id/tvWelcomeName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text=""
+                android:textSize="58sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:shadowColor="#1E3A8A"
+                android:shadowDx="0"
+                android:shadowDy="3"
+                android:shadowRadius="24"
+                android:letterSpacing="-0.02"/>
+
+            <TextView
+                android:id="@+id/tvWelcomeSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Bon visionnage !"
+                android:textSize="15sp"
+                android:textColor="#64748B"
+                android:letterSpacing="0.03"/>
+
+        </LinearLayout>
+
+        <!-- ══════════ CARDS + RIGHT PANEL ══════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
         <!-- CARDS ROW — all 3 same size -->
         <LinearLayout
@@ -559,6 +614,8 @@
                 android:paddingVertical="2dp"
                 android:background="@drawable/bg_version_badge"
                 android:fontFamily="monospace"/>
+
+        </LinearLayout>
 
         </LinearLayout>
 
