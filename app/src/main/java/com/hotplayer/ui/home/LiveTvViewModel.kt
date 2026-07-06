@@ -21,7 +21,7 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
 
     sealed class State {
         object Loading : State()
-        data class Ready(val channels: List<Channel>, val cats: List<Pair<String, Int>>) : State()
+        data class Ready(val channels: List<Channel>, val cats: List<Pair<String, Int>>, val isFromRefresh: Boolean = false) : State()
         data class Error(val msg: String) : State()
     }
 
@@ -102,7 +102,7 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
 
     // ── Filter — O(1) HashMap lookup, safe to call synchronously on main thread ─
 
-    private fun applyFilter(cat: String) {
+    private fun applyFilter(cat: String, isRefresh: Boolean = false) {
         val t0  = System.currentTimeMillis()
         val key = if (cat == "Tous") "" else cat
         var raw = channelsByGroup[key] ?: emptyList()
@@ -112,7 +112,7 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
         displayed = raw
         val dt = System.currentTimeMillis() - t0
         Log.d(TAG, "applyFilter: cat='$cat' → ${displayed.size} ch in ${dt}ms")
-        _state.value = State.Ready(displayed, visibleCats())
+        _state.value = State.Ready(displayed, visibleCats(), isRefresh)
         _index.value = if (displayed.isNotEmpty()) 0 else -1
     }
 
@@ -247,7 +247,12 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
             withContext(Dispatchers.IO) { repo.saveChannelCache(channels, creds) }
             withContext(Dispatchers.Default) { buildIndex(channels) }
             allChannels = channels
-            applyFilter(currentCat)
+            val prevUrl = currentChannel?.url
+            applyFilter(currentCat, isRefresh = true)
+            if (prevUrl != null) {
+                val idx = displayed.indexOfFirst { it.url == prevUrl }
+                if (idx >= 0) _index.value = idx
+            }
         }
     }
 

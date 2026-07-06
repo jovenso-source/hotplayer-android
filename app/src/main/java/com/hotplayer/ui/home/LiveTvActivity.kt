@@ -358,13 +358,21 @@ class LiveTvActivity : AppCompatActivity() {
 
     private fun onReady(state: LiveTvViewModel.State.Ready) {
         showLoading(false)
-        Log.d(TAG, "onReady: ${state.channels.size} ch cat='${vm.currentCat}'")
+        Log.d(TAG, "onReady: ${state.channels.size} ch cat='${vm.currentCat}' refresh=${state.isFromRefresh}")
 
         binding.tvCurrentCategory.text = vm.currentCat
         binding.tvChannelCount.text    =
             "${state.channels.size} chaîne${if (state.channels.size > 1) "s" else ""}"
 
         catAdapter.setData(state.cats)
+
+        if (state.isFromRefresh) {
+            // Background refresh: update adapter data only.
+            // scrollToPosition(0) and focusFirst are intentionally skipped to preserve
+            // the user's current scroll position and focus.
+            chAdapter.setData(state.channels)
+            return
+        }
 
         focusedChannelPos  = 0
         selectedChannel    = null
