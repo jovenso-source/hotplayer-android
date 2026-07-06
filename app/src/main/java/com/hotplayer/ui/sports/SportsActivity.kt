@@ -20,6 +20,7 @@ import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.Match
 import com.hotplayer.data.repository.SportsRepository
 import com.hotplayer.databinding.ActivitySportsBinding
+import com.hotplayer.ui.home.TvLinearLayoutManager
 import com.hotplayer.ui.player.PlayerActivity
 
 class SportsActivity : AppCompatActivity() {
@@ -62,7 +63,7 @@ class SportsActivity : AppCompatActivity() {
             showDetail()
         }
         binding.rvLive.apply {
-            layoutManager = LinearLayoutManager(this@SportsActivity, LinearLayoutManager.HORIZONTAL, false)
+            layoutManager = TvLinearLayoutManager(this@SportsActivity).also { it.orientation = LinearLayoutManager.HORIZONTAL }
             adapter = liveAdapter
             isFocusable = false
         }
@@ -72,7 +73,7 @@ class SportsActivity : AppCompatActivity() {
             showDetail(categoryMode = true, categoryName = category.name)
         }
         binding.rvCategories.apply {
-            layoutManager = LinearLayoutManager(this@SportsActivity, LinearLayoutManager.HORIZONTAL, false)
+            layoutManager = TvLinearLayoutManager(this@SportsActivity).also { it.orientation = LinearLayoutManager.HORIZONTAL }
             adapter = categoryAdapter
             isFocusable = false
         }
@@ -82,14 +83,14 @@ class SportsActivity : AppCompatActivity() {
             showDetail()
         }
         binding.rvUpcoming.apply {
-            layoutManager = LinearLayoutManager(this@SportsActivity, LinearLayoutManager.HORIZONTAL, false)
+            layoutManager = TvLinearLayoutManager(this@SportsActivity).also { it.orientation = LinearLayoutManager.HORIZONTAL }
             adapter = upcomingAdapter
             isFocusable = false
         }
 
         channelAdapter = WatchChannelAdapter { channel -> openPlayer(channel) }
         binding.rvChannels.apply {
-            layoutManager = LinearLayoutManager(this@SportsActivity)
+            layoutManager = TvLinearLayoutManager(this@SportsActivity)
             adapter = channelAdapter
         }
     }
