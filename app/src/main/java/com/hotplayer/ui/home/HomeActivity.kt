@@ -200,7 +200,7 @@ class HomeActivity : AppCompatActivity() {
         val h = cal.get(java.util.Calendar.HOUR_OF_DAY)
         val m = cal.get(java.util.Calendar.MINUTE)
         binding.tvClock.text = "%02d:%02d".format(h, m)
-        val sdf = SimpleDateFormat("EEEE, MMM d", Locale.ENGLISH)
+        val sdf = SimpleDateFormat("EEEE, MMM d", Locale.FRENCH)
         binding.tvDate.text = sdf.format(Date()).replaceFirstChar { it.uppercaseChar() }
     }
 

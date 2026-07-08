@@ -1,5 +1,6 @@
 package com.hotplayer.ui.settings
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -27,8 +28,13 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadInfo() {
         lifecycleScope.launch {
             val info = repo.getDeviceInfo().first()
-            binding.tvMacValue.text     = info["device_id"] ?: "—"
-            binding.tvPlanValue.text    = info["plan"]?.replaceFirstChar { it.uppercase() } ?: "—"
+            binding.tvMacValue.text  = info["device_id"] ?: "—"
+            binding.tvPlanValue.text = when (info["plan"]?.lowercase()) {
+                "monthly"  -> "Mensuel"
+                "yearly"   -> "Annuel"
+                "lifetime" -> "À vie"
+                else       -> info["plan"]?.replaceFirstChar { it.uppercase() } ?: "—"
+            }
             binding.tvVersionValue.text = BuildConfig.VERSION_NAME
         }
     }
@@ -56,12 +62,19 @@ class SettingsActivity : AppCompatActivity() {
         setupFilters()
         binding.btnBack.setOnClickListener { finish() }
         binding.btnLogout.setOnClickListener {
-            lifecycleScope.launch {
-                repo.logout()
-                startActivity(Intent(this@SettingsActivity, ActivationActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                })
-            }
+            AlertDialog.Builder(this)
+                .setTitle("Déconnexion")
+                .setMessage("Voulez-vous vraiment vous déconnecter ?")
+                .setPositiveButton("Se déconnecter") { _, _ ->
+                    lifecycleScope.launch {
+                        repo.logout()
+                        startActivity(Intent(this@SettingsActivity, ActivationActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        })
+                    }
+                }
+                .setNegativeButton("Annuler", null)
+                .show()
         }
         binding.btnReload.setOnClickListener {
             binding.btnReload.isEnabled = false
