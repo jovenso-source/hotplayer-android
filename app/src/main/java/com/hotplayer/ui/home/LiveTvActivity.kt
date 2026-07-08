@@ -88,7 +88,17 @@ class LiveTvActivity : AppCompatActivity() {
         playerMgr.onBuffering = { show ->
             binding.pbPlayerBuffering.visibility = if (show) View.VISIBLE else View.GONE
         }
-        playerMgr.onError = { /* ExoPlayer retries automatically */ }
+        playerMgr.onError = { msg ->
+            binding.layoutLoading.visibility = View.VISIBLE
+            binding.progressBar.visibility   = View.GONE
+            binding.tvError.text             = msg
+            binding.tvError.visibility       = View.VISIBLE
+            binding.btnRetry.visibility      = View.VISIBLE
+            binding.btnRetry.setOnClickListener {
+                selectedChannel?.let { selectChannel(it, selectedChannelIdx) }
+            }
+            binding.btnRetry.post { binding.btnRetry.requestFocus() }
+        }
         playerMgr.init(binding.playerView)
 
         binding.playerFrame.setOnFocusChangeListener { _, hasFocus ->
@@ -103,6 +113,11 @@ class LiveTvActivity : AppCompatActivity() {
         selectedChannel    = ch
         selectedChannelIdx = idx
         chAdapter.setSelectedUrl(ch.url)
+        if (binding.tvError.visibility == View.VISIBLE) {
+            binding.layoutLoading.visibility = View.GONE
+            binding.tvError.visibility       = View.GONE
+            binding.btnRetry.visibility      = View.GONE
+        }
         scheduleChannelLoad(ch, idx)
     }
 
@@ -379,6 +394,8 @@ class LiveTvActivity : AppCompatActivity() {
         selectedChannelIdx = -1
         channelJob?.cancel()
         chAdapter.setSelectedUrl(null)
+        binding.layoutLiveMeta.visibility = View.GONE
+        binding.tvEpgEmpty.visibility     = View.GONE
 
         // Synchronous update — channel list is ready in the same frame, no DiffUtil delay.
         chAdapter.setData(state.channels)
@@ -397,7 +414,9 @@ class LiveTvActivity : AppCompatActivity() {
         binding.tvPlayerName.text = ch.name
         binding.tvPlayerNum.text  = "N° %02d".format(idx + 1)
         binding.tvPlayerCat.text  = ch.group ?: "EN DIRECT"
-        binding.tvPlayerEpgNow.visibility = View.GONE
+        binding.tvPlayerEpgNow.visibility  = View.GONE
+        binding.tvEpgEmpty.visibility      = View.GONE
+        binding.layoutLiveMeta.visibility  = View.VISIBLE
     }
 
     private fun scheduleChannelLoad(ch: Channel, idx: Int) {

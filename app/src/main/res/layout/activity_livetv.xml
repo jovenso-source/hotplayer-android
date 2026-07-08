@@ -265,11 +265,13 @@
 
                     <!-- Channel meta row: live dot + category + channel number -->
                     <LinearLayout
+                        android:id="@+id/layoutLiveMeta"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="6dp">
+                        android:layout_marginBottom="6dp"
+                        android:visibility="gone">
 
                         <View
                             android:layout_width="7dp"
@@ -432,7 +434,8 @@
                         android:layout_marginTop="6dp"
                         android:text="EPG non disponible"
                         android:textSize="12sp"
-                        android:textColor="#3d4a5c"/>
+                        android:textColor="#3d4a5c"
+                        android:visibility="gone"/>
 
                     <!-- Divider between now and next programs -->
                     <View
