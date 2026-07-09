@@ -81,4 +81,7 @@ dependencies {
 
     // EncryptedSharedPreferences (API 23+)
     implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
+    // Détection fuites mémoire — debug uniquement, auto-installé via ContentProvider
+    debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.14'
 }

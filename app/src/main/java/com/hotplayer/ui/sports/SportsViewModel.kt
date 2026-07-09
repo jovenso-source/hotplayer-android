@@ -36,7 +36,8 @@ class SportsViewModel(
         data class Ready(
             val liveMatches:    List<Match>,
             val upcomingMatches: List<Match>,
-            val categories:     List<SportCategory>
+            val categories:     List<SportCategory>,
+            val isFromRefresh:  Boolean = false
         ) : State()
         data class Error(val msg: String) : State()
     }
@@ -130,11 +131,11 @@ class SportsViewModel(
 
     // ── Private ───────────────────────────────────────────────────────────────
 
-    private fun publish() {
+    private fun publish(isRefresh: Boolean = false) {
         val live     = allMatches.filter { it.isLive }
         val upcoming = allMatches.filter { it.isUpcoming }.take(20)
         val cats     = buildCategories()
-        _state.value = State.Ready(live, upcoming, cats)
+        _state.value = State.Ready(live, upcoming, cats, isRefresh)
         if (live.isNotEmpty()) updateLiveBadge(live.size)
     }
 
@@ -161,7 +162,7 @@ class SportsViewModel(
         viewModelScope.launch {
             try {
                 allMatches = sportsRepo.getLiveMatches(force = true)
-                publish()
+                publish(isRefresh = true)
                 _selected.value?.let { sel ->
                     allMatches.find { it.id == sel.id }?.let { _selected.value = it }
                 }

@@ -47,6 +47,7 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
     var displayed = listOf<Channel>(); private set
     val currentChannel get() = displayed.getOrNull(_index.value ?: -1)
     var currentCat = "Tous"; private set
+    private var currentQuery = ""
 
     private var epgJob: Job? = null
 
@@ -162,14 +163,16 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
     fun filterByCategory(cat: String) {
         Log.d(TAG, "filterByCategory: '$cat' (was '${currentCat}') — StateFlow emit triggered")
         currentCat = cat
+        currentQuery = ""
         applyFilter(cat)
     }
 
-    fun clearSearch() { applyFilter(currentCat) }
+    fun clearSearch() { currentQuery = ""; applyFilter(currentCat) }
 
     // Bug #1 + #2: search must apply active filters and use visibleCats()
     fun search(query: String) {
         val q = query.trim()
+        currentQuery = q
         if (q.isEmpty()) { applyFilter(currentCat); return }
         val key  = if (currentCat == "Tous") "" else currentCat
         var base = channelsByGroup[key] ?: emptyList()
@@ -249,7 +252,17 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
             allChannels = channels
             val prevUrl = currentChannel?.url
             applyFilter(currentCat, isRefresh = true)
-            if (prevUrl != null) {
+            if (currentQuery.isNotEmpty()) {
+                displayed = displayed.filter {
+                    it.name.contains(currentQuery, ignoreCase = true) ||
+                    it.group?.contains(currentQuery, ignoreCase = true) == true
+                }
+                _state.value = State.Ready(displayed, visibleCats(), isFromRefresh = true)
+                if (prevUrl != null) {
+                    val idx = displayed.indexOfFirst { it.url == prevUrl }
+                    if (idx >= 0) _index.value = idx
+                }
+            } else if (prevUrl != null) {
                 val idx = displayed.indexOfFirst { it.url == prevUrl }
                 if (idx >= 0) _index.value = idx
             }

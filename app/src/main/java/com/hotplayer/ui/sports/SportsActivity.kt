@@ -117,11 +117,12 @@ class SportsActivity : AppCompatActivity() {
                     bindLive(state.liveMatches)
                     categoryAdapter.setData(state.categories)
                     bindUpcoming(state.upcomingMatches)
-                    // Request focus on categories if no live matches
-                    if (state.liveMatches.isEmpty()) {
-                        binding.rvCategories.post { binding.rvCategories.requestFocus() }
-                    } else {
-                        binding.rvLive.post { binding.rvLive.requestFocus() }
+                    if (!state.isFromRefresh) {
+                        if (state.liveMatches.isEmpty()) {
+                            binding.rvCategories.post { binding.rvCategories.requestFocus() }
+                        } else {
+                            binding.rvLive.post { binding.rvLive.requestFocus() }
+                        }
                     }
                 }
             }
@@ -218,12 +219,16 @@ class SportsActivity : AppCompatActivity() {
     // ─── Player ────────────────────────────────────────────────────────────────
 
     private fun openPlayer(channel: Channel) {
+        val channelList = vm.channels.value ?: emptyList()
+        val idx = channelList.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
+        HotPlayerApp.instance.liveTvChannels     = channelList.ifEmpty { listOf(channel) }
+        HotPlayerApp.instance.liveTvChannelIndex = idx
         startActivity(Intent(this, PlayerActivity::class.java).apply {
             putExtra(PlayerActivity.EXTRA_CHANNEL_URL,   channel.url)
             putExtra(PlayerActivity.EXTRA_CHANNEL_NAME,  channel.name)
             putExtra(PlayerActivity.EXTRA_CHANNEL_LOGO,  channel.logo)
             putExtra(PlayerActivity.EXTRA_CHANNEL_GROUP, channel.group)
-            putExtra(PlayerActivity.EXTRA_CHANNEL_INDEX, 0)
+            putExtra(PlayerActivity.EXTRA_CHANNEL_INDEX, idx)
         })
     }
 
