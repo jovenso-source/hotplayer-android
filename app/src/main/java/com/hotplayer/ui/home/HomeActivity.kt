@@ -20,9 +20,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import com.hotplayer.HotPlayerApp
 import com.hotplayer.data.model.ChannelType
+import com.hotplayer.data.model.RenewalConfig
 import com.hotplayer.data.repository.SessionRepository
 import com.hotplayer.databinding.ActivityHomeBinding
 import com.hotplayer.ui.popup.PopupManager
+import com.hotplayer.ui.renewal.RenewalManager
 import com.hotplayer.ui.settings.SettingsActivity
 import com.hotplayer.ui.sports.SportsActivity
 import kotlinx.coroutines.Dispatchers
@@ -40,13 +42,23 @@ data class DeviceDisplay(val label: String, val expiry: String, val expiryColor:
 
 class HomeViewModel(private val repo: SessionRepository) : ViewModel() {
     fun getDeviceId(): String = repo.deviceId
-    fun sendHeartbeat() = viewModelScope.launch { repo.sendHeartbeat() }
+    fun sendHeartbeat() = viewModelScope.launch {
+        val config = repo.sendHeartbeat()
+        if (config != null) _renewal.postValue(config)
+    }
+
+    fun loadCurrentRenewal() {
+        _renewal.postValue(repo.getCurrentRenewal())
+    }
 
     private val _counts = MutableLiveData<ChannelCounts>()
     val counts: LiveData<ChannelCounts> = _counts
 
     private val _device = MutableLiveData<DeviceDisplay?>()
     val device: LiveData<DeviceDisplay?> = _device
+
+    private val _renewal = MutableLiveData<RenewalConfig?>()
+    val renewal: LiveData<RenewalConfig?> = _renewal
 
     fun loadDeviceInfo() = viewModelScope.launch {
         val info   = repo.getDeviceInfo().first()
@@ -144,6 +156,7 @@ class HomeActivity : AppCompatActivity() {
         updateClock()
         observeCounts()
         observeDevice()
+        observeRenewal()
 
         binding.cardLive.post { binding.cardLive.requestFocus() }
 
@@ -152,6 +165,7 @@ class HomeActivity : AppCompatActivity() {
 
         vm.loadCounts()
         vm.loadDeviceInfo()
+        vm.loadCurrentRenewal()
 
         lifecycleScope.launch { PopupManager.checkAndShow(this@HomeActivity) }
         com.hotplayer.ui.popup.WhatsNewManager.checkAndShow(this)
@@ -322,6 +336,14 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    // ─── Renewal ───────────────────────────────────────────────────────────────
+
+    private fun observeRenewal() {
+        vm.renewal.observe(this) { config ->
+            RenewalManager.checkAndShow(this, config)
+        }
+    }
+
     // ─── Back key ──────────────────────────────────────────────────────────────
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -343,6 +365,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         PopupManager.onActivityResumed(this)
+        vm.renewal.value?.let { RenewalManager.checkAndShow(this, it) }
     }
 
     override fun onDestroy() {

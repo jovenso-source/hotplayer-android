@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="#CC2d1800"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="10dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚠"
+        android:textSize="16sp"
+        android:textColor="@color/yellow"
+        android:layout_marginEnd="10dp"/>
+
+    <TextView
+        android:id="@+id/tvBannerMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="13sp"
+        android:textColor="@color/text_primary"
+        android:singleLine="true"
+        android:ellipsize="end"/>
+
+    <Button
+        android:id="@+id/btnBannerAction"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginStart="12dp"
+        android:paddingHorizontal="16dp"
+        android:textSize="12sp"
+        android:textColor="#1a1200"
+        android:backgroundTint="@color/yellow"
+        android:textStyle="bold"
+        android:focusable="true"
+        android:focusableInTouchMode="false"
+        android:text="Renouveler"/>
+
+    <Button
+        android:id="@+id/btnBannerDismiss"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginStart="6dp"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary"
+        android:backgroundTint="@color/bg_tertiary"
+        android:focusable="true"
+        android:focusableInTouchMode="false"
+        android:nextFocusLeft="@id/btnBannerAction"
+        android:nextFocusRight="@id/btnBannerAction"
+        android:text="×"/>
+
+</LinearLayout>
