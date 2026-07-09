@@ -1,6 +1,7 @@
 package com.hotplayer.data.api
 
 import com.google.gson.annotations.SerializedName
+import com.hotplayer.data.model.RenewalConfig
 
 data class ActivateRequest(
     @SerializedName("mac") val mac: String?   // null = UUID-only auth (no MAC sent)
@@ -22,7 +23,8 @@ data class ActivateResponse(
     @SerializedName("session_id")  val sessionId: String,   // UUID (nouveau format, rétrocompatible)
     @SerializedName("device_id")   val deviceId: String?,   // null sur l'ancien backend, UUID sur le nouveau
     @SerializedName("device")      val device: DeviceInfo,
-    @SerializedName("playlist")    val playlist: PlaylistInfo?
+    @SerializedName("playlist")    val playlist: PlaylistInfo?,
+    @SerializedName("renewal")     val renewal: RenewalConfig? = null
 )
 
 data class DeviceInfo(
@@ -70,7 +72,8 @@ data class StatusResponse(
 
 data class HeartbeatResponse(
     @SerializedName("ok")          val ok: Boolean,
-    @SerializedName("server_time") val serverTime: String
+    @SerializedName("server_time") val serverTime: String,
+    @SerializedName("renewal")     val renewal: RenewalConfig? = null
 )
 
 data class StreamPlaylistResponse(

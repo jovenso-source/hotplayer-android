@@ -16,6 +16,7 @@ import com.hotplayer.data.api.XtreamLiveStream
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
+import com.hotplayer.data.model.RenewalConfig
 import com.hotplayer.BuildConfig
 import com.hotplayer.data.api.ActivateRequest
 import com.hotplayer.data.api.MigrateRequest
@@ -65,6 +66,8 @@ class SessionRepository @Inject constructor(
         private val KEY_MAC_LEGACY     = stringPreferencesKey("mac")
         private const val TAG          = "SessionRepo"
     }
+
+    @Volatile private var cachedRenewal: RenewalConfig? = null
 
     private val gson     = Gson()
     // Helper MAC utilisé uniquement pendant la migration — jamais après.
@@ -153,6 +156,7 @@ class SessionRepository @Inject constructor(
                         }
                     }
                 }
+                cachedRenewal = body.renewal
                 ActivationResult.Success(body.playlist)
             } else {
                 val code = parseErrorCode(response.errorBody()?.string())
@@ -226,7 +230,7 @@ class SessionRepository @Inject constructor(
                         }
                     }
                 }
-
+                cachedRenewal = body.renewal
                 context.dataStore.edit { prefs -> prefs.remove(KEY_MAC_LEGACY) }
 
                 Log.i(TAG, "Legacy migration successful")
@@ -248,12 +252,19 @@ class SessionRepository @Inject constructor(
         }
     }
 
-    suspend fun sendHeartbeat(): Boolean {
-        val token = deviceRepo.getToken() ?: return false
+    suspend fun sendHeartbeat(): RenewalConfig? {
+        val token = deviceRepo.getToken() ?: return null
         return try {
-            api.heartbeat("Bearer $token", identity.deviceId).isSuccessful
-        } catch (_: Exception) { false }
+            val response = api.heartbeat("Bearer $token", identity.deviceId)
+            if (response.isSuccessful) {
+                val renewal = response.body()?.renewal
+                cachedRenewal = renewal
+                renewal
+            } else null
+        } catch (_: Exception) { null }
     }
+
+    fun getCurrentRenewal(): RenewalConfig? = cachedRenewal
 
     // ── Playlist credentials (refresh from server, fall back to cache) ────────
 
