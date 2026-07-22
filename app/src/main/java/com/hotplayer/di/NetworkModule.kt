@@ -2,6 +2,7 @@ package com.hotplayer.di
 
 import com.hotplayer.BuildConfig
 import com.hotplayer.data.api.HotPlayerApi
+import com.hotplayer.data.api.TransientNetworkRetryInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,6 +27,7 @@ object NetworkModule {
                 HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()
+            .addInterceptor(TransientNetworkRetryInterceptor())
             .addInterceptor(logging)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

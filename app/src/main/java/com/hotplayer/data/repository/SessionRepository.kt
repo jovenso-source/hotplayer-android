@@ -10,6 +10,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.hotplayer.data.api.HotPlayerApi
 import com.hotplayer.data.api.PlaylistInfo
+import com.hotplayer.data.api.TransientNetworkRetryInterceptor
 import com.hotplayer.data.api.XtreamCategory
 import com.hotplayer.data.api.XtreamEpgResponse
 import com.hotplayer.data.api.XtreamLiveStream
@@ -21,6 +22,7 @@ import com.hotplayer.BuildConfig
 import com.hotplayer.data.api.ActivateRequest
 import com.hotplayer.data.api.MigrateRequest
 import com.hotplayer.security.DeviceIdentityManager
+import com.hotplayer.utils.ChannelUtils
 import com.hotplayer.utils.MacAddressHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -65,6 +67,12 @@ class SessionRepository @Inject constructor(
         // Utilisées UNIQUEMENT pour lire l'ancienne MAC enregistrée, puis supprimées.
         private val KEY_MAC_LEGACY     = stringPreferencesKey("mac")
         private const val TAG          = "SessionRepo"
+
+        // Hoisted out of parseM3U()'s per-line loop: compiling a Regex is not free, and these
+        // were previously re-created for every single #EXTINF line (thousands of times on large
+        // playlists). Same patterns, same behavior — compiled once, reused.
+        private val M3U_LOGO_REGEX  = Regex("""tvg-logo="([^"]+)"""")
+        private val M3U_GROUP_REGEX = Regex("""group-title="([^"]+)"""")
     }
 
     @Volatile private var cachedRenewal: RenewalConfig? = null
@@ -76,6 +84,7 @@ class SessionRepository @Inject constructor(
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .addInterceptor(TransientNetworkRetryInterceptor())
         .addInterceptor { chain ->
             chain.proceed(
                 chain.request().newBuilder()
@@ -268,6 +277,13 @@ class SessionRepository @Inject constructor(
 
     // ── Playlist credentials (refresh from server, fall back to cache) ────────
 
+    // Local-only, no network call — lets a caller do cache-first reads (show what we already
+    // have on disk instantly) before deciding whether a network refresh is worth waiting for.
+    suspend fun getPlaylistCredentialsFromCache(): PlaylistCredentials {
+        val prefs = context.dataStore.data.first()
+        return fromCache(prefs)
+    }
+
     suspend fun getPlaylistCredentials(): PlaylistCredentials {
         val prefs = context.dataStore.data.first()
         val token = deviceRepo.getToken()
@@ -380,7 +396,7 @@ class SessionRepository @Inject constructor(
 
     suspend fun loadChannels(m3uUrl: String): List<Channel> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "M3U loading: $m3uUrl")
+            Log.d(TAG, "M3U loading: ${ChannelUtils.redactUrl(m3uUrl)}")
             val req     = Request.Builder().url(m3uUrl).build()
             val content = httpClient.newCall(req).execute().use { it.body?.string() ?: "" }
             parseM3U(content)
@@ -458,8 +474,8 @@ class SessionRepository @Inject constructor(
             if (trimmed.startsWith("#EXTINF:")) {
                 hasExtInf = true
                 name  = trimmed.substringAfterLast(",").trim()
-                logo  = Regex("""tvg-logo="([^"]+)"""").find(trimmed)?.groupValues?.get(1) ?: ""
-                group = Regex("""group-title="([^"]+)"""").find(trimmed)?.groupValues?.get(1) ?: ""
+                logo  = M3U_LOGO_REGEX.find(trimmed)?.groupValues?.get(1) ?: ""
+                group = M3U_GROUP_REGEX.find(trimmed)?.groupValues?.get(1) ?: ""
             } else if (hasExtInf && (trimmed.startsWith("http") || trimmed.startsWith("rtmp"))) {
                 // Filter separators/markers: hash-prefixed names, pure-dash/equals/plus lines, blanks
                 val isSeparator = name.startsWith("#") || group.startsWith("#") ||
@@ -556,10 +572,13 @@ class SessionRepository @Inject constructor(
         context.dataStore.edit { it.clear() }
     }
 
-    // ── Channel cache (persists across launches, expires after 12h) ──────────────
+    // ── Channel cache (cache-first: usable regardless of age, see loadChannelCache) ──
 
     private val cacheFile get() = File(context.filesDir, "channels_cache.json")
-    private val cacheExpiryMs = 60 * 60 * 1000L // 1h
+
+    // Not a display-eligibility cutoff anymore (see loadChannelCache) — only used by
+    // isChannelCacheStale() to decide whether a background refresh is worth triggering.
+    private val cacheStaleThresholdMs = 60 * 60 * 1000L // 1h
 
     fun saveChannelCache(channels: List<Channel>, creds: PlaylistCredentials) {
         try {
@@ -570,19 +589,32 @@ class SessionRepository @Inject constructor(
         }
     }
 
-    fun loadChannelCache(creds: PlaylistCredentials): List<Channel>? {
+    private fun readCacheEntry(creds: PlaylistCredentials): ChannelCacheEntry? {
         return try {
             if (!cacheFile.exists()) return null
             val entry = gson.fromJson(cacheFile.readText(), ChannelCacheEntry::class.java)
                 ?: return null
             if (entry.credentialKey != credentialKey(creds)) return null
-            if (System.currentTimeMillis() - entry.timestamp > cacheExpiryMs) return null
-            entry.channels.takeIf { it.isNotEmpty() }
+            entry
         } catch (e: Exception) {
             Log.w(TAG, "Cache load failed: ${e.message}")
             try { cacheFile.delete() } catch (_: Exception) {}
             null
         }
+    }
+
+    // A. Cache immediately usable for display — regardless of age, as long as it matches the
+    // current credentials and isn't corrupt/empty. On a weak connection, old-but-correct data
+    // beats a blank screen or a network wait; a background refresh (see LiveTvViewModel.load())
+    // reconciles it shortly after.
+    fun loadChannelCache(creds: PlaylistCredentials): List<Channel>? =
+        readCacheEntry(creds)?.channels?.takeIf { it.isNotEmpty() }
+
+    // B. Whether the cache is old enough to be worth refreshing in the background. Purely a
+    // "should I bother calling the network" signal — never gates whether (A) can be displayed.
+    fun isChannelCacheStale(creds: PlaylistCredentials): Boolean {
+        val entry = readCacheEntry(creds) ?: return true
+        return System.currentTimeMillis() - entry.timestamp > cacheStaleThresholdMs
     }
 
     fun clearChannelCache() { try { cacheFile.delete() } catch (_: Exception) {} }

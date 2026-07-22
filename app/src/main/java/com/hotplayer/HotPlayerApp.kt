@@ -2,6 +2,7 @@ package com.hotplayer
 
 import android.app.Application
 import android.content.SharedPreferences
+import android.util.Log
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.repository.DeviceRepository
 import com.hotplayer.data.repository.SessionRepository
@@ -36,5 +37,24 @@ class HotPlayerApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        installCrashLogger()
+    }
+
+    /**
+     * Filet de diagnostic minimal en attendant un vrai crash reporter (Crashlytics —
+     * nécessite un projet Firebase, absent du repo actuellement, voir rapport de phase 1).
+     * Logue le crash complet AVANT de déléguer au handler par défaut : ne change rien
+     * au comportement de crash existant, rend seulement visible ce qui se passe.
+     */
+    private fun installCrashLogger() {
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                Log.e("HotPlayerCrash", "FATAL on thread '${thread.name}': ${throwable.message}", throwable)
+            } catch (_: Throwable) {
+                // Never let the crash logger itself prevent the crash from being reported.
+            }
+            previousHandler?.uncaughtException(thread, throwable)
+        }
     }
 }

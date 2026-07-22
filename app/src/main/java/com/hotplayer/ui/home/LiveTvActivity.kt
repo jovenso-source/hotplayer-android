@@ -19,6 +19,8 @@ import com.hotplayer.data.model.EpgItem
 import com.hotplayer.databinding.ActivityLivetvBinding
 import com.hotplayer.ui.player.ExoPlayerManager
 import com.hotplayer.ui.player.PlayerActivity
+import com.hotplayer.utils.ChannelUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -58,6 +60,7 @@ class LiveTvActivity : AppCompatActivity() {
         setupRecyclers()
         setupNavigation()
         setupSearch()
+        setupRefreshButton()
         observe()
 
         showLoading(true)
@@ -88,17 +91,7 @@ class LiveTvActivity : AppCompatActivity() {
         playerMgr.onBuffering = { show ->
             binding.pbPlayerBuffering.visibility = if (show) View.VISIBLE else View.GONE
         }
-        playerMgr.onError = { msg ->
-            binding.layoutLoading.visibility = View.VISIBLE
-            binding.progressBar.visibility   = View.GONE
-            binding.tvError.text             = msg
-            binding.tvError.visibility       = View.VISIBLE
-            binding.btnRetry.visibility      = View.VISIBLE
-            binding.btnRetry.setOnClickListener {
-                selectedChannel?.let { selectChannel(it, selectedChannelIdx) }
-            }
-            binding.btnRetry.post { binding.btnRetry.requestFocus() }
-        }
+        playerMgr.onError = { msg -> showPlayerError(msg) }
         playerMgr.init(binding.playerView)
 
         binding.playerFrame.setOnFocusChangeListener { _, hasFocus ->
@@ -107,6 +100,18 @@ class LiveTvActivity : AppCompatActivity() {
         binding.playerFrame.setOnClickListener {
             selectedChannel?.let { openPlayer(it, selectedChannelIdx) }
         }
+    }
+
+    private fun showPlayerError(msg: String) {
+        binding.layoutLoading.visibility = View.VISIBLE
+        binding.progressBar.visibility   = View.GONE
+        binding.tvError.text             = msg
+        binding.tvError.visibility       = View.VISIBLE
+        binding.btnRetry.visibility      = View.VISIBLE
+        binding.btnRetry.setOnClickListener {
+            selectedChannel?.let { selectChannel(it, selectedChannelIdx) }
+        }
+        binding.btnRetry.post { binding.btnRetry.requestFocus() }
     }
 
     private fun selectChannel(ch: Channel, idx: Int) {
@@ -317,6 +322,19 @@ class LiveTvActivity : AppCompatActivity() {
         }
     }
 
+    // ─── Refresh ───────────────────────────────────────────────────────────────
+
+    // Manual "check the server now" — merges in changes (added/removed channels) without
+    // resetting the user's scroll position or active category. Purely a UX affordance around
+    // LiveTvViewModel.refreshNow(); the rotation is just tap feedback, not a real progress
+    // indicator (the refresh itself stays silent, same as the automatic stale-cache one).
+    private fun setupRefreshButton() {
+        binding.btnRefresh.setOnClickListener {
+            it.animate().rotationBy(360f).setDuration(500).start()
+            vm.refreshNow()
+        }
+    }
+
     // ─── Search ────────────────────────────────────────────────────────────────
 
     private fun setupSearch() {
@@ -422,10 +440,20 @@ class LiveTvActivity : AppCompatActivity() {
     private fun scheduleChannelLoad(ch: Channel, idx: Int) {
         channelJob?.cancel()
         channelJob = lifecycleScope.launch {
-            delay(300)
-            vm.triggerEpg(idx)
-            delay(200)
-            if (!isFinishing && !isDestroyed) playerMgr.play(ch.url)
+            try {
+                delay(300)
+                vm.triggerEpg(idx)
+                delay(200)
+                if (isFinishing || isDestroyed) return@launch
+                playerMgr.play(ch.url)
+            } catch (e: CancellationException) {
+                // Normal: a newer selection cancelled this job (channelJob?.cancel() above,
+                // or lifecycleScope auto-cancel on destroy). Must propagate, not swallow.
+                throw e
+            } catch (e: Throwable) {
+                Log.e(TAG, "scheduleChannelLoad failed idx=$idx url=${ChannelUtils.redactUrl(ch.url)}: ${e.message}", e)
+                if (!isFinishing && !isDestroyed) showPlayerError("Erreur lors du chargement de la chaîne.")
+            }
         }
     }
 

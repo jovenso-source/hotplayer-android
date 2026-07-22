@@ -4,6 +4,17 @@ import com.hotplayer.data.model.Channel
 
 object ChannelUtils {
 
+    // Strips credentials from a channel URL before it ever reaches a log line —
+    // Xtream URLs embed username/password in the path ("/live/<user>/<pass>/<id>.ts")
+    // and M3U URLs sometimes carry them as query params.
+    fun redactUrl(url: String): String = try {
+        url
+            .replace(Regex("(?i)/live/[^/]+/[^/]+/"), "/live/***/***/")
+            .replace(Regex("(?i)(username|password|user|pass)=[^&]*"), "$1=***")
+    } catch (_: Exception) {
+        "***"
+    }
+
     private val FRENCH_TOKENS = listOf(
         "FRANCE", "FRANÇAIS", "FRANCAIS", "FRENCH",
         "TF1", "M6", "CANAL+", "ARTE", "BFM", "TMC", "W9",

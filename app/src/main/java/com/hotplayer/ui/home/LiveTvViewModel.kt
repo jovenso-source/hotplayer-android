@@ -54,25 +54,24 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
     // ── Load ──────────────────────────────────────────────────────────────────
 
     fun load(forceRefresh: Boolean = false) = viewModelScope.launch {
-        _state.value = State.Loading
         currentCat = "Tous"
+
+        // Cache-first: show local data instantly, without waiting on any network round-trip —
+        // not even the one to refresh credentials. A weak/slow connection must never delay the
+        // first frame when we already have something usable on disk.
+        if (!forceRefresh) {
+            val shown = tryShowFromLocalCache()
+            if (shown) return@launch
+        }
+
+        // No usable local cache (first launch, cleared cache, or an explicit forced refresh):
+        // fall back to the network-first path — there is genuinely nothing else to show yet.
+        _state.value = State.Loading
         try {
             val creds = repo.getPlaylistCredentials()
             if (creds is PlaylistCredentials.None) {
                 _state.value = State.Error("Aucune playlist configurée.\nContactez votre administrateur.")
                 return@launch
-            }
-            if (!forceRefresh) {
-                val cached = withContext(Dispatchers.IO) { repo.loadChannelCache(creds) }
-                if (cached != null) {
-                    withContext(Dispatchers.Default) { buildIndex(cached) }
-                    allChannels = cached
-                    applyFilter("Tous")
-                    viewModelScope.launch {
-                        try { silentRefresh(creds) } catch (_: Throwable) {}
-                    }
-                    return@launch
-                }
             }
             val channels = fetchFromNetwork(creds) ?: return@launch
             withContext(Dispatchers.IO) { repo.saveChannelCache(channels, creds) }
@@ -83,6 +82,44 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
             _state.value = State.Error("Erreur inattendue : ${e.message}")
         }
     }
+
+    // Returns true if local cache existed and was used to populate the UI immediately.
+    // Never touches the network to decide whether to show (A) — only to decide, afterwards,
+    // whether a background refresh (B) is worth triggering.
+    private suspend fun tryShowFromLocalCache(): Boolean {
+        val localCreds = try {
+            repo.getPlaylistCredentialsFromCache()
+        } catch (_: Throwable) {
+            return false
+        }
+        if (localCreds is PlaylistCredentials.None) return false
+
+        val cached = withContext(Dispatchers.IO) { repo.loadChannelCache(localCreds) } ?: return false
+
+        withContext(Dispatchers.Default) { buildIndex(cached) }
+        allChannels = cached
+        applyFilter("Tous")
+
+        val stale = withContext(Dispatchers.IO) { repo.isChannelCacheStale(localCreds) }
+        if (stale) launchBackgroundRefresh()
+        return true
+    }
+
+    // Fetches the current server playlist and merges it in if non-empty (see silentRefresh),
+    // without resetting scroll position, focus or the active category filter.
+    private fun launchBackgroundRefresh() {
+        viewModelScope.launch {
+            try {
+                val freshCreds = repo.getPlaylistCredentials()
+                if (freshCreds !is PlaylistCredentials.None) silentRefresh(freshCreds)
+            } catch (_: Throwable) {}
+        }
+    }
+
+    // Manual "refresh now" — same background merge as an automatic stale refresh, just
+    // triggered on demand instead of gated by cache age. Does not reset State.Loading:
+    // whatever is currently displayed stays up until (and unless) the refresh succeeds.
+    fun refreshNow() = launchBackgroundRefresh()
 
     // ── Index builder (Dispatchers.Default — never on main thread) ─────────────
     // Sorts every category list ONCE. filterByCategory becomes a HashMap lookup.

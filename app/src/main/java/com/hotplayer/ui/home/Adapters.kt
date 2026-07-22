@@ -395,7 +395,10 @@ class LiveChannelAdapter(
         super.onViewRecycled(h)
         h.itemView.onFocusChangeListener = null
         h.itemView.setOnClickListener(null)
-        try { Glide.with(h.itemView.context.applicationContext).clear(h.ivLogo) } catch (_: Exception) {}
+        // Must clear with the same RequestManager that issued the load() in onBindViewHolder
+        // (activity-scoped context) — clearing via a different (application-scoped) RequestManager
+        // does not cancel the actual in-flight/cached request tied to this ImageView.
+        try { Glide.with(h.itemView.context).clear(h.ivLogo) } catch (_: Exception) {}
     }
 
     companion object {
