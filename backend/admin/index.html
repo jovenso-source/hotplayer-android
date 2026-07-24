@@ -66,11 +66,11 @@ body{font-family:var(--font);background:var(--bg0);color:var(--text);height:100v
 .stat-n{font-size:1.9rem;font-weight:700;line-height:1;font-family:var(--mono)}
 .stat-n.orange{color:var(--accent)}.stat-n.green{color:var(--green)}.stat-n.red{color:var(--red)}.stat-n.yellow{color:var(--yellow)}.stat-n.blue{color:var(--blue)}
 .stat-l{font-size:.75rem;color:var(--text2)}
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
-.card-header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.card-header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
 .card-title{font-size:.9rem;font-weight:600;flex:1}
 .card-actions{display:flex;gap:8px;align-items:center}
-.table-wrap{overflow-x:auto}
+.table-wrap{overflow-x:auto;overflow-y:auto;flex:1;min-height:0}
 table{width:100%;border-collapse:collapse;font-size:.83rem}
 thead th{padding:10px 16px;text-align:left;font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;background:var(--bg3);white-space:nowrap}
 tbody tr{border-top:1px solid var(--border);transition:background .1s}
@@ -94,7 +94,7 @@ td.name{color:var(--text);font-weight:500}
 .search-box input{background:none;border:none;color:var(--text);font-family:var(--font);font-size:.85rem;outline:none;flex:1}
 .search-box input::placeholder{color:var(--text3)}
 select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text2);padding:7px 10px;font-family:var(--font);font-size:.82rem;outline:none;cursor:pointer}
-.pagination{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border)}
+.pagination{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .page-info{font-size:.75rem;color:var(--text3);margin-right:auto}
 .actions{display:flex;gap:4px}
 .modal-overlay{position:fixed;inset:0;background:#00000088;backdrop-filter:blur(8px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease}
@@ -184,7 +184,7 @@ select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(-
         <button class="btn btn-ghost btn-sm" onclick="loadDevices()">↻</button>
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title">Appareils enregistrés</div><div class="card-actions"><span id="dev-count" style="font-size:.75rem;color:var(--text3)"></span><button class="btn btn-ghost btn-sm" onclick="openImport()">📥 Importer Excel</button><button class="btn btn-accent btn-sm" onclick="openAddDevice()">+ Ajouter</button></div></div>
+        <div class="card-header"><div class="card-title">Appareils enregistrés</div><div class="card-actions"><span id="dev-count" style="font-size:.75rem;color:var(--text3)"></span><button class="btn btn-ghost btn-sm" id="btn-export-devices" onclick="exportDevices()">📤 Exporter</button><button class="btn btn-ghost btn-sm" onclick="openImport()">📥 Importer Excel</button><button class="btn btn-accent btn-sm" onclick="openAddDevice()">+ Ajouter</button></div></div>
         <div class="table-wrap"><table><thead><tr><th>Adresse MAC</th><th>Label</th><th>Statut</th><th>Plan</th><th>Connexions</th><th>Expiration</th><th>Ajouté</th><th>Actions</th></tr></thead><tbody id="devices-body"></tbody></table></div>
         <div class="pagination" id="dev-pagination"></div>
       </div>
@@ -412,6 +412,41 @@ async function loadDevices(){
   const pg=document.getElementById('dev-pagination');pg.innerHTML=`<span class="page-info">Page ${data.page} / ${data.pages} — ${data.total} résultats</span>`;
   if(data.page>1)pg.innerHTML+=`<button class="btn btn-ghost btn-sm" onclick="devPage--;loadDevices()">← Précédent</button>`;
   if(data.page<data.pages)pg.innerHTML+=`<button class="btn btn-ghost btn-sm" onclick="devPage++;loadDevices()">Suivant →</button>`;
+}
+async function exportDevices(){
+  const btn=document.getElementById('btn-export-devices');
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent='Export en cours…';
+  try{
+    const search=document.getElementById('dev-search').value;
+    const status=document.getElementById('dev-status-filter').value;
+    // Ignore devPage/devLimit on purpose — export doit couvrir tous les appareils
+    // correspondant au filtre actif, pas seulement la page affichée à l'écran.
+    const params=new URLSearchParams({page:1,limit:100000});
+    if(search)params.set('search',search);if(status)params.set('status',status);
+    const{ok,data}=await api(`/devices?${params}`);
+    if(!ok||!data.devices){toast('Erreur lors de l\'export','err');return}
+    if(!data.devices.length){toast('Aucun appareil à exporter','info');return}
+    const rows=[
+      ['mac_address','label','status','plan','max_connections','expiration_date','playlist_url','xtream_server','xtream_user','xtream_pass','notes'],
+      ...data.devices.map(d=>[
+        d.mac_address,d.label||'',d.status,d.plan,d.max_connections,
+        d.expiration_date?d.expiration_date.split('T')[0]:'',
+        d.playlist_url||'',d.xtream_server||'',d.xtream_user||'',d.xtream_pass||'',d.notes||''
+      ])
+    ];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:20},{wch:15},{wch:12},{wch:12},{wch:14},{wch:16},{wch:38},{wch:28},{wch:14},{wch:14},{wch:20}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Appareils');
+    const stamp=new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb,`hotplayer_appareils_${stamp}.xlsx`);
+    toast(`${data.devices.length} appareil${data.devices.length!==1?'s':''} exporté${data.devices.length!==1?'s':''} ✓`,'ok');
+  }catch(e){
+    toast('Erreur lors de l\'export','err');
+  }finally{
+    btn.disabled=false;btn.textContent=original;
+  }
 }
 function openAddDevice(){document.getElementById('modal-title').textContent='Ajouter un appareil';document.getElementById('edit-id').value='';['f-mac','f-label','f-m3u','f-xs','f-xu','f-xp','f-notes','f-expiry'].forEach(id=>{document.getElementById(id).value=''});document.getElementById('f-status').value='active';document.getElementById('f-plan').value='monthly';document.getElementById('f-maxconn').value=1;document.getElementById('f-mac').disabled=false;document.getElementById('modal-device').classList.remove('hidden')}
 async function editDevice(id){const{data}=await api(`/devices/${id}`);const d=data.device;if(!d)return;document.getElementById('modal-title').textContent="Modifier l'appareil";document.getElementById('edit-id').value=d.id;document.getElementById('f-mac').value=d.mac_address;document.getElementById('f-mac').disabled=true;document.getElementById('f-label').value=d.label||'';document.getElementById('f-status').value=d.status;document.getElementById('f-plan').value=d.plan;document.getElementById('f-maxconn').value=d.max_connections;document.getElementById('f-expiry').value=d.expiration_date?.split('T')[0]||'';document.getElementById('f-m3u').value=d.playlist_url||'';document.getElementById('f-xs').value=d.xtream_server||'';document.getElementById('f-xu').value=d.xtream_user||'';document.getElementById('f-xp').value=d.xtream_pass||'';document.getElementById('f-notes').value=d.notes||'';document.getElementById('modal-device').classList.remove('hidden')}
