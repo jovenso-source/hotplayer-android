@@ -13,6 +13,8 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.hotplayer.HotPlayerApp
+import com.hotplayer.data.monitoring.MonitoredError
 import com.hotplayer.utils.ChannelUtils
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -70,6 +72,15 @@ class ExoPlayerManager(context: Context) {
             // that failed, not on whatever `currentUrl` happens to be *now*.
             val failedUrl = currentUrl
             Log.w(TAG, "onPlayerError code=${error.errorCode} (${error.errorCodeName}) url=${ChannelUtils.redactUrl(failedUrl)}")
+
+            // Monitoring hook — fire-and-forget, ne touche à rien du chemin de retry/erreur
+            // ci-dessous. N'a d'effet que si error.errorCode correspond à un type surveillé
+            // (voir MonitoredError) ; ERROR_3003 est le premier, d'autres pourront s'ajouter
+            // sans toucher à cette ligne.
+            MonitoredError.fromExoPlayerErrorCode(error.errorCode)?.let {
+                HotPlayerApp.instance.monitoringReporter.report(it, context = error.errorCodeName)
+            }
+
             val retryable = isRetryableNetworkError(error.errorCode)
             if (retryable && retryCount < 3 && failedUrl.isNotEmpty()) {
                 retryCount++

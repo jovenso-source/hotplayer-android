@@ -7,6 +7,14 @@ data class ActivateRequest(
     @SerializedName("mac") val mac: String?   // null = UUID-only auth (no MAC sent)
 )
 
+// Généré côté app pour l'idempotence : le backend déduplique sur cette valeur, donc un
+// retry réseau qui aboutit deux fois ne crée jamais deux incidents ni deux notifications.
+data class MonitoringEventRequest(
+    @SerializedName("event_id")   val eventId: String,
+    @SerializedName("error_code") val errorCode: String,
+    @SerializedName("context")    val context: String? = null
+)
+
 data class MigrateRequest(
     @SerializedName("mac")                 val mac: String,
     @SerializedName("app_version")         val appVersion: String?,

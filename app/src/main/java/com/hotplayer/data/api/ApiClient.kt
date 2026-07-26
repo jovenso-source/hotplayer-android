@@ -52,6 +52,16 @@ interface HotPlayerApi {
         @Header("Authorization") token: String,
         @Header("X-Device-ID") mac: String
     ): Response<StreamPlaylistResponse>
+
+    // Endpoint générique de monitoring (voir data/monitoring/) — pas spécifique à un
+    // error_code particulier. Idempotent grâce à event_id (déduplication côté backend),
+    // donc marqué explicitement rejouable par TransientNetworkRetryInterceptor.
+    @Headers("X-Idempotent-Retry: true")
+    @POST("events")
+    suspend fun reportEvent(
+        @Header("X-Device-ID") deviceId: String,
+        @Body body: MonitoringEventRequest
+    ): Response<Unit>
 }
 
 /* ════════════════════════════════════════════════════

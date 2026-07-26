@@ -6,13 +6,16 @@ import okhttp3.Response
 import java.io.IOException
 
 /**
- * Retries idempotent GET requests on transient network failures (timeout, connection reset,
+ * Retries idempotent requests on transient network failures (timeout, connection reset,
  * DNS resolution failure) with a short progressive backoff — aimed at the weak/unstable mobile
  * connections HotPlayer users commonly have.
  *
  * Deliberately narrow in scope:
- *  - only GET requests are retried (POST — activate/migrate/heartbeat/logout — are never retried,
- *    they are not safe to repeat blindly);
+ *  - retried by default: GET requests only (POST — activate/migrate/heartbeat/logout — are
+ *    never retried, they are not safe to repeat blindly);
+ *  - a POST is retried too, but ONLY if it explicitly opts in via the "X-Idempotent-Retry: true"
+ *    header (e.g. HotPlayerApi.reportEvent, deduplicated server-side by event_id) — nothing else
+ *    is affected by adding this header check, every existing POST call is unchanged;
  *  - only I/O-level failures (thrown IOException) trigger a retry — HTTP error responses (401,
  *    403, 404, 5xx) are returned as-is and left to existing app-level handling
  *    (e.g. SessionRepository.getPlaylistCredentials()'s 401/403/404 branches), not retried here.
@@ -27,11 +30,13 @@ class TransientNetworkRetryInterceptor(
 
     companion object {
         private const val TAG = "NetworkRetry"
+        private const val HEADER_IDEMPOTENT_RETRY = "X-Idempotent-Retry"
     }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        if (request.method != "GET") return chain.proceed(request)
+        val retryable = request.method == "GET" || request.header(HEADER_IDEMPOTENT_RETRY) == "true"
+        if (!retryable) return chain.proceed(request)
 
         var attempt = 0
         while (true) {
