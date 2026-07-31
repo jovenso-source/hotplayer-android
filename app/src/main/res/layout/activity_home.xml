@@ -172,20 +172,44 @@
                 android:textColor="#94A3B8"
                 android:letterSpacing="0.02"/>
 
-            <TextView
-                android:id="@+id/tvWelcomeName"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text=""
-                android:textSize="58sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:shadowColor="#1E3A8A"
-                android:shadowDx="0"
-                android:shadowDy="3"
-                android:shadowRadius="24"
-                android:letterSpacing="-0.02"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvWelcomeName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text=""
+                    android:textSize="58sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:shadowColor="#1E3A8A"
+                    android:shadowDx="0"
+                    android:shadowDy="3"
+                    android:shadowRadius="24"
+                    android:letterSpacing="-0.02"/>
+
+                <!-- Plan badge (SELECT/ELITE) — hidden for BASIC, driven entirely by ThemeManager -->
+                <TextView
+                    android:id="@+id/tvPlanBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:text=""
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08"
+                    android:visibility="gone"/>
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvWelcomeSub"

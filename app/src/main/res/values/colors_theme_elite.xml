@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ELITE tier palette — see ui/theme/ThemeElite.kt. Black + gold + purple, VIP identity. -->
+<resources>
+    <color name="elite_bg">#07050c</color>
+    <color name="elite_accent">#D4AF37</color>
+    <color name="elite_purple">#8B5CF6</color>
+    <color name="elite_badge_bg">#D4AF37</color>
+    <color name="elite_badge_text">#0c0612</color>
+    <color name="elite_card_border">#66D4AF37</color>
+    <color name="elite_glow">#408B5CF6</color>
+    <color name="elite_name_gradient_start">#D4AF37</color>
+    <color name="elite_name_gradient_end">#8B5CF6</color>
+</resources>

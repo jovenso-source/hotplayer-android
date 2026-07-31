@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SELECT tier palette — see ui/theme/ThemeSelect.kt. Blue base + gold accents. -->
+<resources>
+    <color name="select_accent">#E8B84B</color>
+    <color name="select_accent_light">#F4D48A</color>
+    <color name="select_badge_bg">#E8B84B</color>
+    <color name="select_badge_text">#1A1400</color>
+    <color name="select_card_border">#66E8B84B</color>
+    <color name="select_glow">#33E8B84B</color>
+    <color name="select_name_gradient_start">#E8B84B</color>
+    <color name="select_name_gradient_end">#38BDF8</color>
+</resources>

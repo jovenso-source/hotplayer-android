@@ -35,6 +35,7 @@ class DeviceRepository @Inject constructor(
         private val KEY_SESSION_ID = stringPreferencesKey("device_session_id")
         private val KEY_MIGRATED   = booleanPreferencesKey("device_migrated")
         private val KEY_PLAN       = stringPreferencesKey("device_plan")
+        private val KEY_TIER       = stringPreferencesKey("device_tier")
         private val KEY_LABEL      = stringPreferencesKey("device_label")
     }
 
@@ -47,6 +48,7 @@ class DeviceRepository @Inject constructor(
         expiresAt: String,
         sessionId: String,
         plan:      String,
+        tier:      String,
         label:     String,
     ) {
         context.deviceDataStore.edit { prefs ->
@@ -54,6 +56,7 @@ class DeviceRepository @Inject constructor(
             prefs[KEY_EXPIRES]    = expiresAt
             prefs[KEY_SESSION_ID] = sessionId
             prefs[KEY_PLAN]       = plan
+            prefs[KEY_TIER]       = tier
             prefs[KEY_LABEL]      = label
             prefs[KEY_MIGRATED]   = true
         }

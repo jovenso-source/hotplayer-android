@@ -19,4 +19,10 @@
     <color name="blue_accent">#00A8FF</color>
     <color name="blue_dark">#0d1f30</color>
     <color name="channel_selected_bg">#1a2d40</color>
+
+    <!-- BASIC tier (ui/theme/ThemeBasic.kt) — identical to the app's original
+         hardcoded design, extracted here only so ThemeManager has a single,
+         resource-based source of truth like the other tiers. -->
+    <color name="basic_name_gradient_start">#818CF8</color>
+    <color name="basic_name_gradient_end">#38BDF8</color>
 </resources>

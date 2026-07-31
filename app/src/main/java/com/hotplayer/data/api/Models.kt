@@ -2,6 +2,7 @@ package com.hotplayer.data.api
 
 import com.google.gson.annotations.SerializedName
 import com.hotplayer.data.model.RenewalConfig
+import com.hotplayer.ui.theme.ThemeConfig
 
 data class ActivateRequest(
     @SerializedName("mac") val mac: String?   // null = UUID-only auth (no MAC sent)
@@ -32,12 +33,16 @@ data class ActivateResponse(
     @SerializedName("device_id")   val deviceId: String?,   // null sur l'ancien backend, UUID sur le nouveau
     @SerializedName("device")      val device: DeviceInfo,
     @SerializedName("playlist")    val playlist: PlaylistInfo?,
-    @SerializedName("renewal")     val renewal: RenewalConfig? = null
+    @SerializedName("renewal")     val renewal: RenewalConfig? = null,
+    @SerializedName("theme")       val theme: ThemeConfig? = null
 )
 
 data class DeviceInfo(
     @SerializedName("label")           val label: String?,
     @SerializedName("plan")            val plan: String,
+    // Visual tier (BASIC/SELECT/ELITE) — independent from the billing `plan` above.
+    // Drives ThemeManager; defaults to BASIC so an older backend never breaks the UI.
+    @SerializedName("tier")            val tier: String = "BASIC",
     @SerializedName("status")          val status: String,
     @SerializedName("expiration_date") val expirationDate: String?,
     @SerializedName("max_connections") val maxConnections: Int
@@ -74,14 +79,17 @@ data class StatusResponse(
     @SerializedName("activated")       val activated: Boolean,
     @SerializedName("status")          val status: String,
     @SerializedName("plan")            val plan: String,
+    @SerializedName("tier")            val tier: String = "BASIC",
     @SerializedName("expiration_date") val expirationDate: String?,
-    @SerializedName("label")           val label: String?
+    @SerializedName("label")           val label: String?,
+    @SerializedName("theme")           val theme: ThemeConfig? = null
 )
 
 data class HeartbeatResponse(
     @SerializedName("ok")          val ok: Boolean,
     @SerializedName("server_time") val serverTime: String,
-    @SerializedName("renewal")     val renewal: RenewalConfig? = null
+    @SerializedName("renewal")     val renewal: RenewalConfig? = null,
+    @SerializedName("theme")       val theme: ThemeConfig? = null
 )
 
 data class StreamPlaylistResponse(

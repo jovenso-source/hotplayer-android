@@ -18,6 +18,7 @@ import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
 import com.hotplayer.data.model.RenewalConfig
+import com.hotplayer.ui.theme.ThemeConfig
 import com.hotplayer.BuildConfig
 import com.hotplayer.data.api.ActivateRequest
 import com.hotplayer.data.api.MigrateRequest
@@ -56,6 +57,7 @@ class SessionRepository @Inject constructor(
 
     companion object {
         private val KEY_PLAN           = stringPreferencesKey("plan")
+        private val KEY_TIER           = stringPreferencesKey("tier")
         private val KEY_LABEL          = stringPreferencesKey("label")
         private val KEY_M3U_URL        = stringPreferencesKey("m3u_url")
         private val KEY_PLAYLIST_TYPE  = stringPreferencesKey("playlist_type")
@@ -76,6 +78,7 @@ class SessionRepository @Inject constructor(
     }
 
     @Volatile private var cachedRenewal: RenewalConfig? = null
+    @Volatile private var cachedTheme: ThemeConfig? = null
 
     private val gson     = Gson()
     // Helper MAC utilisé uniquement pendant la migration — jamais après.
@@ -149,11 +152,13 @@ class SessionRepository @Inject constructor(
                     expiresAt = body.expiresAt,
                     sessionId = body.sessionId,
                     plan      = body.device.plan,
+                    tier      = body.device.tier,
                     label     = body.device.label ?: ""
                 )
                 body.playlist?.let { pl ->
                     context.dataStore.edit { prefs ->
                         prefs[KEY_PLAN]          = body.device.plan
+                        prefs[KEY_TIER]          = body.device.tier
                         prefs[KEY_LABEL]         = body.device.label ?: ""
                         prefs[KEY_EXPIRY_DATE]   = body.device.expirationDate ?: ""
                         prefs[KEY_PLAYLIST_TYPE] = pl.type
@@ -166,6 +171,7 @@ class SessionRepository @Inject constructor(
                     }
                 }
                 cachedRenewal = body.renewal
+                cachedTheme   = body.theme
                 ActivationResult.Success(body.playlist)
             } else {
                 val code = parseErrorCode(response.errorBody()?.string())
@@ -222,12 +228,14 @@ class SessionRepository @Inject constructor(
                     expiresAt = body.expiresAt,
                     sessionId = body.sessionId,
                     plan      = body.device.plan,
+                    tier      = body.device.tier,
                     label     = body.device.label ?: ""
                 )
 
                 body.playlist?.let { pl ->
                     context.dataStore.edit { prefs ->
                         prefs[KEY_PLAN]          = body.device.plan
+                        prefs[KEY_TIER]          = body.device.tier
                         prefs[KEY_LABEL]         = body.device.label ?: ""
                         prefs[KEY_EXPIRY_DATE]   = body.device.expirationDate ?: ""
                         prefs[KEY_PLAYLIST_TYPE] = pl.type
@@ -240,6 +248,7 @@ class SessionRepository @Inject constructor(
                     }
                 }
                 cachedRenewal = body.renewal
+                cachedTheme   = body.theme
                 context.dataStore.edit { prefs -> prefs.remove(KEY_MAC_LEGACY) }
 
                 Log.i(TAG, "Legacy migration successful")
@@ -268,12 +277,15 @@ class SessionRepository @Inject constructor(
             if (response.isSuccessful) {
                 val renewal = response.body()?.renewal
                 cachedRenewal = renewal
+                cachedTheme   = response.body()?.theme
                 renewal
             } else null
         } catch (_: Exception) { null }
     }
 
     fun getCurrentRenewal(): RenewalConfig? = cachedRenewal
+
+    fun getCurrentTheme(): ThemeConfig? = cachedTheme
 
     // ── Playlist credentials (refresh from server, fall back to cache) ────────
 
@@ -666,6 +678,7 @@ class SessionRepository @Inject constructor(
             mapOf(
                 "device_id" to identity.deviceId,
                 "plan"      to (prefs[KEY_PLAN]       ?: "—"),
+                "tier"      to (prefs[KEY_TIER]       ?: "BASIC"),
                 "label"     to (prefs[KEY_LABEL]      ?: ""),
                 "expiry"    to (prefs[KEY_EXPIRY_DATE] ?: "")
             )

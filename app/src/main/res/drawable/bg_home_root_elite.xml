@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ELITE exclusive dashboard background — black fading to a subtle purple tint. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:startColor="@color/elite_bg"
+        android:centerColor="#120a1c"
+        android:endColor="#07050c"
+        android:angle="90"
+        android:type="linear"/>
+</shape>

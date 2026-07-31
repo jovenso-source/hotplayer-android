@@ -2,8 +2,6 @@ package com.hotplayer.ui.home
 
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Shader
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -27,6 +25,8 @@ import com.hotplayer.ui.popup.PopupManager
 import com.hotplayer.ui.renewal.RenewalManager
 import com.hotplayer.ui.settings.SettingsActivity
 import com.hotplayer.ui.sports.SportsActivity
+import com.hotplayer.ui.theme.ThemeConfig
+import com.hotplayer.ui.theme.ThemeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -40,11 +40,15 @@ data class ChannelCounts(val live: Int, val movies: Int, val radios: Int)
 
 data class DeviceDisplay(val label: String, val expiry: String, val expiryColor: Int)
 
+/** tier + optional backend overrides — everything ThemeManager.apply() needs. */
+data class ThemeState(val tier: String, val override: ThemeConfig?)
+
 class HomeViewModel(private val repo: SessionRepository) : ViewModel() {
     fun getDeviceId(): String = repo.deviceId
     fun sendHeartbeat() = viewModelScope.launch {
         val config = repo.sendHeartbeat()
         if (config != null) _renewal.postValue(config)
+        _theme.postValue(ThemeState(_theme.value?.tier ?: "BASIC", repo.getCurrentTheme()))
     }
 
     fun loadCurrentRenewal() {
@@ -60,8 +64,13 @@ class HomeViewModel(private val repo: SessionRepository) : ViewModel() {
     private val _renewal = MutableLiveData<RenewalConfig?>()
     val renewal: LiveData<RenewalConfig?> = _renewal
 
+    private val _theme = MutableLiveData<ThemeState>()
+    val theme: LiveData<ThemeState> = _theme
+
     fun loadDeviceInfo() = viewModelScope.launch {
         val info   = repo.getDeviceInfo().first()
+        val tier   = info["tier"] ?: "BASIC"
+        _theme.value = ThemeState(tier, repo.getCurrentTheme())
         val label  = info["label"]?.takeIf { it.isNotBlank() } ?: return@launch
         val expiry = info["expiry"] ?: ""
         _device.value = DeviceDisplay(label, formatExpiry(expiry), expiryColor(expiry))
@@ -149,6 +158,9 @@ class HomeActivity : AppCompatActivity() {
         binding.tvMacFooter.text    = "ID: ${vm.getDeviceId().take(8)}…"
         binding.tvVersionFooter.text = "v${com.hotplayer.BuildConfig.VERSION_NAME}"
 
+        // Safe default so cards have focus listeners before the real tier loads from DataStore.
+        ThemeManager.apply(this, binding, tier = "BASIC", override = null)
+
         setupHeader()
         setupCards()
         setupFocus()
@@ -157,6 +169,7 @@ class HomeActivity : AppCompatActivity() {
         observeCounts()
         observeDevice()
         observeRenewal()
+        observeTheme()
 
         binding.cardLive.post { binding.cardLive.requestFocus() }
 
@@ -188,25 +201,6 @@ class HomeActivity : AppCompatActivity() {
             .start()
     }
 
-    private fun applyNameGradient() {
-        val tv = binding.tvWelcomeName
-        tv.post {
-            val w = tv.width.toFloat()
-            if (w > 0f) {
-                tv.paint.shader = LinearGradient(
-                    0f, 0f, w, 0f,
-                    intArrayOf(
-                        Color.parseColor("#818CF8"),
-                        Color.parseColor("#38BDF8")
-                    ),
-                    null,
-                    Shader.TileMode.CLAMP
-                )
-                tv.invalidate()
-            }
-        }
-    }
-
     // ─── Clock ─────────────────────────────────────────────────────────────────
 
     private fun updateClock() {
@@ -233,7 +227,7 @@ class HomeActivity : AppCompatActivity() {
             val firstName = d.label.trim().split(Regex("\\s+")).first()
                 .replaceFirstChar { it.uppercaseChar() }
             binding.tvWelcomeName.text = firstName
-            applyNameGradient()
+            ThemeManager.refreshNameGradient(binding)
         }
     }
 
@@ -303,25 +297,8 @@ class HomeActivity : AppCompatActivity() {
     // ─── Focus animations ──────────────────────────────────────────────────────
 
     private fun setupFocus() {
-        val cardData = listOf(
-            binding.cardLive    to binding.indicatorLive,
-            binding.cardSports  to binding.indicatorSports,
-            binding.cardFilms   to binding.indicatorFilms
-        )
+        // Card focus/scale animation is theme-driven — see ThemeManager.apply()/applyCards().
         val headerBtns = listOf(binding.btnSearch, binding.navSettings, binding.btnAvatar)
-
-        cardData.forEach { (card, indicator) ->
-            card.setOnFocusChangeListener { v, hasFocus ->
-                v.animate()
-                    .scaleX(if (hasFocus) 1.06f else 1f)
-                    .scaleY(if (hasFocus) 1.06f else 1f)
-                    .setDuration(160)
-                    .setInterpolator(DecelerateInterpolator())
-                    .start()
-                v.elevation = if (hasFocus) 16f else 3f
-                indicator.visibility = if (hasFocus) View.VISIBLE else View.GONE
-            }
-        }
 
         headerBtns.forEach { btn ->
             btn.setOnFocusChangeListener { v, hasFocus ->
@@ -341,6 +318,14 @@ class HomeActivity : AppCompatActivity() {
     private fun observeRenewal() {
         vm.renewal.observe(this) { config ->
             RenewalManager.checkAndShow(this, config)
+        }
+    }
+
+    // ─── Theme (plan-driven UI) ──────────────────────────────────────────────────
+
+    private fun observeTheme() {
+        vm.theme.observe(this) { state ->
+            ThemeManager.apply(this, binding, state.tier, state.override)
         }
     }
 
