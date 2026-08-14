@@ -75,6 +75,7 @@ class SessionRepository @Inject constructor(
         // playlists). Same patterns, same behavior — compiled once, reused.
         private val M3U_LOGO_REGEX  = Regex("""tvg-logo="([^"]+)"""")
         private val M3U_GROUP_REGEX = Regex("""group-title="([^"]+)"""")
+        private val M3U_TVGID_REGEX = Regex("""tvg-id="([^"]+)"""")
     }
 
     @Volatile private var cachedRenewal: RenewalConfig? = null
@@ -479,6 +480,7 @@ class SessionRepository @Inject constructor(
         var name      = ""
         var logo      = ""
         var group     = ""
+        var tvgId     = ""
         var hasExtInf = false
 
         for (line in content.lines()) {
@@ -488,6 +490,7 @@ class SessionRepository @Inject constructor(
                 name  = trimmed.substringAfterLast(",").trim()
                 logo  = M3U_LOGO_REGEX.find(trimmed)?.groupValues?.get(1) ?: ""
                 group = M3U_GROUP_REGEX.find(trimmed)?.groupValues?.get(1) ?: ""
+                tvgId = M3U_TVGID_REGEX.find(trimmed)?.groupValues?.get(1) ?: ""
             } else if (hasExtInf && (trimmed.startsWith("http") || trimmed.startsWith("rtmp"))) {
                 // Filter separators/markers: hash-prefixed names, pure-dash/equals/plus lines, blanks
                 val isSeparator = name.startsWith("#") || group.startsWith("#") ||
@@ -505,11 +508,12 @@ class SessionRepository @Inject constructor(
                         url   = trimmed,
                         logo  = logo.ifEmpty { null },
                         group = group.ifEmpty { null },
+                        tvgId = tvgId.ifEmpty { null },
                         type  = type
                     ))
                 }
                 hasExtInf = false
-                name = ""; logo = ""; group = ""
+                name = ""; logo = ""; group = ""; tvgId = ""
             }
         }
         return channels

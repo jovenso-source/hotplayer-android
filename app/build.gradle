@@ -84,4 +84,6 @@ dependencies {
 
     // Détection fuites mémoire — debug uniquement, auto-installé via ContentProvider
     debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.14'
+
+    testImplementation 'junit:junit:4.13.2'
 }

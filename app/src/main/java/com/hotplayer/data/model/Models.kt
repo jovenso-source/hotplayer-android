@@ -8,6 +8,7 @@ data class Channel(
     val url: String,
     val logo: String?,
     val group: String?,
+    val tvgId: String? = null,
     val type: ChannelType = ChannelType.LIVE
 )
 

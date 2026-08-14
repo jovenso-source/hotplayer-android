@@ -3,6 +3,7 @@ package com.hotplayer
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
+import com.hotplayer.data.filter.ChannelFilterRepository
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.monitoring.MonitoringReporter
 import com.hotplayer.data.repository.DeviceRepository
@@ -28,6 +29,7 @@ class HotPlayerApp : Application() {
     @Inject lateinit var deviceRepo: DeviceRepository
     @Inject lateinit var deviceIdentity: DeviceIdentityManager
     @Inject lateinit var monitoringReporter: MonitoringReporter
+    @Inject lateinit var channelFilterRepo: ChannelFilterRepository
 
     /** Préférences UI légères (thème, filtres) — non sensibles, pas d'EncryptedSharedPreferences. */
     val prefs: SharedPreferences by lazy { getSharedPreferences("hp_prefs", MODE_PRIVATE) }

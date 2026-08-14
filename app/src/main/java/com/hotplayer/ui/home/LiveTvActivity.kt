@@ -51,7 +51,8 @@ class LiveTvActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val repo = HotPlayerApp.instance.sessionRepo
-        vm = ViewModelProvider(this, LiveTvViewModelFactory(repo))[LiveTvViewModel::class.java]
+        val filterRepo = HotPlayerApp.instance.channelFilterRepo
+        vm = ViewModelProvider(this, LiveTvViewModelFactory(repo, filterRepo))[LiveTvViewModel::class.java]
         vm.hideFhd   = HotPlayerApp.instance.prefs.getBoolean("hide_fhd",   false)
         vm.hideBe    = HotPlayerApp.instance.prefs.getBoolean("hide_be",    false)
         vm.hideAdult = HotPlayerApp.instance.prefs.getBoolean("hide_adult", false)

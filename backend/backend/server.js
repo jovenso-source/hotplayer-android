@@ -12,6 +12,8 @@ const adminRoutes     = require('./routes/admin');
 const streamRoutes    = require('./routes/stream');
 const popupRoutes     = require('./routes/popup');
 const webhookRoutes   = require('./routes/webhook');
+const channelFiltersRoutes       = require('./routes/channelFilters');
+const channelFiltersPublicRoutes = require('./routes/channelFiltersPublic');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +31,8 @@ app.use('/api/admin',   adminRoutes);
 app.use('/api/stream',  streamRoutes);
 app.use('/api/popup',   popupRoutes);
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/admin/channel-filters', channelFiltersRoutes);
+app.use('/api/channel-filters',       channelFiltersPublicRoutes);
 
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
 app.use('/',      express.static(path.join(__dirname, '../frontend')));

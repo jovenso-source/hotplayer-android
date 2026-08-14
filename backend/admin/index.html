@@ -151,6 +151,7 @@ select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(-
     <button class="nav-btn" data-view="sessions"><span class="nav-icon">◉</span>Sessions<span class="nav-badge green" id="nb-sessions">0</span></button>
     <div class="sb-section">Système</div>
     <button class="nav-btn" data-view="popups"><span class="nav-icon">🔔</span>Notifications<span class="nav-badge" id="nb-popups" style="background:var(--yellow-bg);color:var(--yellow)">0</span></button>
+    <button class="nav-btn" data-view="channel-filters"><span class="nav-icon">🚫</span>Filtres chaînes<span class="nav-badge" id="nb-cf">0</span></button>
     <button class="nav-btn" data-view="logs"><span class="nav-icon">📋</span>Logs</button>
     <div class="sb-bottom">
       <button class="nav-btn" id="logout-btn"><span class="nav-icon">⏻</span>Déconnexion</button>
@@ -215,6 +216,29 @@ select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(-
       <div class="card" style="background:var(--bg3);border-color:#2a2f47">
         <div class="card-header"><div class="card-title" style="font-size:.8rem;color:var(--text2)">📡 URL publique utilisée par les apps</div></div>
         <div style="padding:14px 18px;font-family:var(--mono);font-size:.8rem;color:var(--accent2)" id="popup-public-url"></div>
+      </div>
+    </section>
+    <section class="view" id="view-channel-filters">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🚫 Filtres de chaînes</div>
+          <div class="card-actions">
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="cf-global-toggle" onchange="toggleGlobalFilterKillswitch(this.checked)"/> Fonctionnalité activée
+            </label>
+            <button class="btn btn-accent btn-sm" onclick="openAddFilterList()">+ Nouvelle liste</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nom</th><th>Catégorie</th><th>Statut</th><th>Version</th><th>Chaînes masquées</th><th>Maj le</th><th>Actions</th></tr></thead>
+            <tbody id="cf-lists-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="background:var(--bg3);border-color:#2a2f47">
+        <div class="card-header"><div class="card-title" style="font-size:.8rem;color:var(--text2)">📡 URL publique utilisée par HotPlayer</div></div>
+        <div style="padding:14px 18px;font-family:var(--mono);font-size:.8rem;color:var(--accent2)" id="cf-public-url"></div>
       </div>
     </section>
     <section class="view" id="view-logs">
@@ -341,6 +365,59 @@ select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(-
     </div>
   </div>
 </div>
+<div id="modal-cf-list" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h3 id="cf-list-modal-title">Nouvelle liste</h3><button class="modal-close" onclick="closeModal('modal-cf-list')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="cf-edit-id"/>
+      <div class="form-group"><label>Nom *</label><input id="cf-f-name" placeholder="France - chaînes inactives"/></div>
+      <div class="form-group"><label>Catégorie *</label><input id="cf-f-category" placeholder="France"/><span class="form-hint">Doit correspondre exactement à la catégorie affichée dans HotPlayer (group-title de la playlist).</span></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-cf-list')">Annuler</button><button class="btn btn-accent" onclick="saveFilterList()">Enregistrer</button></div>
+  </div>
+</div>
+<div id="modal-cf-import" class="modal-overlay hidden">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><h3>📥 Importer un JSON de chaînes inactives</h3><button class="modal-close" onclick="closeModal('modal-cf-import')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="cf-import-list-id"/>
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:12px 14px;font-size:.81rem;color:var(--text2);line-height:1.6">
+        <strong style="color:var(--text)">⚠ Cet import remplace intégralement</strong> les chaînes actuellement masquées pour cette liste.<br>
+        Format attendu : <span class="form-hint" style="font-family:var(--mono)">{"entries":[{"channel_id":"...","tvg_id":"...","name":"...","status":"INACTIVE"}]}</span> — seules les entrées avec <strong>status=INACTIVE</strong> ou <strong>action=HIDE</strong> sont masquées (ACTIVE/SHOW/REVIEW/UNSTABLE sont ignorées).
+      </div>
+      <label style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:8px 14px;cursor:pointer;font-size:.83rem;color:var(--text2);width:fit-content">
+        📂 Choisir un fichier .json
+        <input type="file" id="cf-import-file" accept=".json" style="display:none" onchange="handleCfImportFile(this)"/>
+      </label>
+      <span id="cf-import-filename" style="font-size:.78rem;color:var(--text3)"></span>
+      <div id="cf-import-preview" class="hidden" style="font-size:.8rem;color:var(--text2)"></div>
+      <div id="cf-import-warning" class="hidden" style="border-radius:var(--r2);padding:13px 15px;font-size:.84rem;border-left:3px solid var(--yellow);background:var(--yellow-bg);color:var(--text)"></div>
+      <div id="cf-import-result" class="hidden" style="border-radius:var(--r2);padding:13px 15px;font-size:.84rem;border-left:3px solid var(--green)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cf-import')">Fermer</button>
+      <button class="btn btn-accent" id="cf-import-btn" onclick="doCfImport()" disabled>Importer</button>
+    </div>
+  </div>
+</div>
+<div id="modal-cf-entries" class="modal-overlay hidden">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header"><h3 id="cf-entries-title">Chaînes masquées</h3><button class="modal-close" onclick="closeModal('modal-cf-entries')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="cf-entries-list-id"/>
+      <div class="filter-bar">
+        <div class="search-box"><span style="color:var(--text3)">⌕</span><input type="text" id="cf-entries-search" placeholder="Rechercher une chaîne…"/></div>
+        <button class="btn btn-danger btn-sm" onclick="clearFilterList()">🗑 Vider la liste</button>
+      </div>
+      <div class="table-wrap" style="max-height:340px">
+        <table><thead><tr><th>Channel ID</th><th>tvg-id</th><th>Nom</th><th>Statut source</th><th></th></tr></thead>
+        <tbody id="cf-entries-body"></tbody></table>
+      </div>
+      <div class="pagination" id="cf-entries-pagination"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-cf-entries')">Fermer</button></div>
+  </div>
+</div>
 <div id="toast" class="hidden"></div>
 <script>
 const API='/api/admin';
@@ -368,8 +445,8 @@ async function doLogin(){
 }
 document.getElementById('logout-btn').addEventListener('click',()=>{adminToken=null;document.getElementById('login-screen').classList.remove('hidden');document.getElementById('app').classList.add('hidden');document.getElementById('l-pass').value=''});
 document.querySelectorAll('.nav-btn[data-view]').forEach(btn=>{btn.addEventListener('click',()=>switchView(btn.dataset.view))});
-const viewTitles={dashboard:'Dashboard',devices:'Appareils',sessions:'Sessions actives',logs:"Journal d'accès",popups:'Notifications & Mises à jour'};
-function switchView(name){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelector(`[data-view="${name}"]`)?.classList.add('active');document.getElementById(`view-${name}`)?.classList.add('active');document.getElementById('view-title').textContent=viewTitles[name]||name;({dashboard:loadDashboard,devices:loadDevices,sessions:loadSessions,logs:loadLogs,popups:loadPopups})[name]?.()}
+const viewTitles={dashboard:'Dashboard',devices:'Appareils',sessions:'Sessions actives',logs:"Journal d'accès",popups:'Notifications & Mises à jour','channel-filters':'Filtres de chaînes'};
+function switchView(name){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelector(`[data-view="${name}"]`)?.classList.add('active');document.getElementById(`view-${name}`)?.classList.add('active');document.getElementById('view-title').textContent=viewTitles[name]||name;({dashboard:loadDashboard,devices:loadDevices,sessions:loadSessions,logs:loadLogs,popups:loadPopups,'channel-filters':loadChannelFilters})[name]?.()}
 async function updateNavBadges(){const{data}=await api('/stats');if(!data.devices)return;document.getElementById('nb-devices').textContent=data.devices.total;document.getElementById('nb-sessions').textContent=data.connections.active_now}
 async function loadDashboard(){
   const{data}=await api('/stats');if(!data.devices)return;
@@ -686,6 +763,235 @@ function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Appareils');
   XLSX.writeFile(wb, 'hotplayer_import_modele.xlsx');
+}
+
+// ── Channel Filters ───────────────────────────────────────────────────────────
+let cfLists = [];
+let cfImportEntries = [];
+let cfAnomalyPending = false;
+let cfEntriesPage = 1;
+const cfEntriesLimit = 50;
+
+async function loadChannelFilters() {
+  document.getElementById('cf-public-url').textContent = window.location.origin + '/api/channel-filters';
+  const {data} = await api('/channel-filters');
+  const settings = data.global || {enabled:true};
+  document.getElementById('cf-global-toggle').checked = !!settings.enabled;
+  cfLists = data.lists || [];
+  document.getElementById('nb-cf').textContent = cfLists.length;
+  renderChannelFiltersTable(cfLists);
+}
+
+function renderChannelFiltersTable(lists) {
+  const tbody = document.getElementById('cf-lists-body');
+  tbody.innerHTML = '';
+  if (!lists.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🚫</div><p>Aucune liste de filtres créée</p></div></td></tr>`;
+    return;
+  }
+  lists.forEach(l => {
+    const tr = document.createElement('tr');
+    const statusBadge = l.enabled ? `<span class="badge active">● Activée</span>` : `<span class="badge inactive">● Désactivée</span>`;
+    tr.innerHTML = `
+      <td class="name">${l.name}</td>
+      <td>${l.category}</td>
+      <td>${statusBadge}</td>
+      <td class="mono">v${l.version}</td>
+      <td>${l.hidden_count}</td>
+      <td style="font-size:.74rem;color:var(--text3)">${fmtDateShort(l.updated_at)}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-xs" onclick="openFilterListEntries('${l.id}')">👁 Voir</button>
+        <button class="btn btn-ghost btn-xs" onclick="openImportFilterList('${l.id}')">📥 Importer</button>
+        <button class="btn btn-ghost btn-xs" onclick="editFilterList('${l.id}')">Éditer</button>
+        ${l.enabled
+          ? `<button class="btn btn-danger btn-xs" onclick="toggleFilterListEnabled('${l.id}',false)">Désactiver</button>`
+          : `<button class="btn btn-success btn-xs" onclick="toggleFilterListEnabled('${l.id}',true)">Activer</button>`}
+        <button class="btn btn-danger btn-xs" onclick="deleteFilterList('${l.id}',${JSON.stringify(l.name)})">✕</button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function toggleGlobalFilterKillswitch(enabled) {
+  const {ok, data} = await api('/channel-filters/settings', 'PATCH', {enabled});
+  if (ok) toast(enabled ? 'Filtres activés globalement' : 'Filtres désactivés globalement (killswitch)', 'info');
+  else { toast(data.error || 'Erreur', 'err'); document.getElementById('cf-global-toggle').checked = !enabled; }
+}
+
+function openAddFilterList() {
+  document.getElementById('cf-list-modal-title').textContent = 'Nouvelle liste';
+  document.getElementById('cf-edit-id').value = '';
+  document.getElementById('cf-f-name').value = '';
+  document.getElementById('cf-f-category').value = '';
+  document.getElementById('modal-cf-list').classList.remove('hidden');
+}
+
+function editFilterList(id) {
+  const l = cfLists.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('cf-list-modal-title').textContent = 'Modifier la liste';
+  document.getElementById('cf-edit-id').value = l.id;
+  document.getElementById('cf-f-name').value = l.name;
+  document.getElementById('cf-f-category').value = l.category;
+  document.getElementById('modal-cf-list').classList.remove('hidden');
+}
+
+async function saveFilterList() {
+  const id = document.getElementById('cf-edit-id').value;
+  const payload = {
+    name: document.getElementById('cf-f-name').value.trim(),
+    category: document.getElementById('cf-f-category').value.trim(),
+  };
+  if (!payload.name || !payload.category) return toast('Nom et catégorie requis', 'err');
+  const {ok, data} = id
+    ? await api(`/channel-filters/${id}`, 'PATCH', payload)
+    : await api('/channel-filters', 'POST', payload);
+  if (ok) { toast(id ? 'Liste mise à jour ✓' : 'Liste créée ✓', 'ok'); closeModal('modal-cf-list'); loadChannelFilters(); }
+  else toast(data.error || 'Erreur', 'err');
+}
+
+async function toggleFilterListEnabled(id, enabled) {
+  const {ok, data} = await api(`/channel-filters/${id}/${enabled ? 'activate' : 'deactivate'}`, 'POST');
+  if (ok) { toast(enabled ? 'Liste activée' : 'Liste désactivée', 'info'); loadChannelFilters(); }
+  else toast(data.error || 'Erreur', 'err');
+}
+
+async function deleteFilterList(id, name) {
+  if (!confirm(`Supprimer la liste "${name}" ? Toutes ses chaînes masquées seront perdues.`)) return;
+  const {ok} = await api(`/channel-filters/${id}`, 'DELETE');
+  if (ok) { toast('Liste supprimée', 'info'); loadChannelFilters(); }
+}
+
+function openImportFilterList(id) {
+  document.getElementById('cf-import-list-id').value = id;
+  document.getElementById('cf-import-file').value = '';
+  document.getElementById('cf-import-filename').textContent = '';
+  document.getElementById('cf-import-preview').classList.add('hidden');
+  document.getElementById('cf-import-warning').classList.add('hidden');
+  document.getElementById('cf-import-result').classList.add('hidden');
+  document.getElementById('cf-import-btn').disabled = true;
+  document.getElementById('cf-import-btn').textContent = 'Importer';
+  cfImportEntries = [];
+  cfAnomalyPending = false;
+  document.getElementById('modal-cf-import').classList.remove('hidden');
+}
+
+function handleCfImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('cf-import-filename').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = document.getElementById('cf-import-preview');
+    document.getElementById('cf-import-warning').classList.add('hidden');
+    document.getElementById('cf-import-result').classList.add('hidden');
+    cfAnomalyPending = false;
+    document.getElementById('cf-import-btn').textContent = 'Importer';
+    try {
+      const parsed = JSON.parse(e.target.result);
+      const entries = Array.isArray(parsed) ? parsed : (parsed.entries || parsed.channels);
+      if (!Array.isArray(entries) || !entries.length) throw new Error('Aucune entrée trouvée (attendu: un tableau ou {"entries":[...]})');
+      cfImportEntries = entries;
+      preview.classList.remove('hidden');
+      preview.innerHTML = `<strong style="color:var(--text)">${entries.length}</strong> entrée${entries.length>1?'s':''} détectée${entries.length>1?'s':''} dans le fichier — validation faite côté serveur à l'import.`;
+      document.getElementById('cf-import-btn').disabled = false;
+    } catch(err) {
+      cfImportEntries = [];
+      preview.classList.remove('hidden');
+      preview.innerHTML = `<span style="color:var(--red)">JSON invalide : ${err.message}</span>`;
+      document.getElementById('cf-import-btn').disabled = true;
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function doCfImport() {
+  const id = document.getElementById('cf-import-list-id').value;
+  if (!cfImportEntries.length) return;
+  const btn = document.getElementById('cf-import-btn');
+  btn.disabled = true; btn.textContent = 'Import en cours…';
+  const {ok, status, data} = await api(`/channel-filters/${id}/import`, 'POST', { entries: cfImportEntries, confirm: cfAnomalyPending });
+  const warning = document.getElementById('cf-import-warning');
+  const result = document.getElementById('cf-import-result');
+  if (ok) {
+    cfAnomalyPending = false;
+    warning.classList.add('hidden');
+    result.classList.remove('hidden');
+    result.style.borderLeftColor = 'var(--green)';
+    result.innerHTML = `<strong style="color:var(--green)">✓ Import appliqué</strong> — version ${data.version}<br>
+      <span style="color:var(--text)">${data.created}</span> masquée${data.created!==1?'s':''} &nbsp;·&nbsp;
+      <span style="color:var(--text2)">${data.ignored} ignorée${data.ignored!==1?'s':''} (statut non masquant)</span> &nbsp;·&nbsp;
+      <span style="color:var(--text2)">${data.skipped_duplicate} doublon${data.skipped_duplicate!==1?'s':''}</span>
+      ${data.errors?.length ? `<br><span style="color:var(--red);font-size:.78rem">${data.errors.length} erreur${data.errors.length>1?'s':''}</span>` : ''}`;
+    btn.textContent = 'Importer'; btn.disabled = false;
+    toast('Import appliqué ✓', 'ok');
+    loadChannelFilters();
+  } else if (status === 409 && data.warning) {
+    cfAnomalyPending = true;
+    warning.classList.remove('hidden');
+    warning.innerHTML = `<strong>⚠ ${data.message}</strong>`;
+    btn.disabled = false;
+    btn.textContent = 'Confirmer quand même';
+  } else {
+    cfAnomalyPending = false;
+    result.classList.remove('hidden');
+    result.style.borderLeftColor = 'var(--red)';
+    result.innerHTML = `<strong style="color:var(--red)">✕ Erreur</strong> : ${data.error || 'Erreur inconnue'}`;
+    btn.textContent = 'Importer'; btn.disabled = false;
+  }
+}
+
+function openFilterListEntries(id) {
+  document.getElementById('cf-entries-list-id').value = id;
+  const l = cfLists.find(x => x.id === id);
+  document.getElementById('cf-entries-title').textContent = `Chaînes masquées — ${l ? l.name : id}`;
+  document.getElementById('cf-entries-search').value = '';
+  cfEntriesPage = 1;
+  loadFilterListEntries();
+  document.getElementById('modal-cf-entries').classList.remove('hidden');
+}
+
+let cfEntriesSearchTimer;
+document.getElementById('cf-entries-search').addEventListener('input', () => {
+  clearTimeout(cfEntriesSearchTimer);
+  cfEntriesSearchTimer = setTimeout(() => { cfEntriesPage = 1; loadFilterListEntries(); }, 350);
+});
+
+async function loadFilterListEntries() {
+  const id = document.getElementById('cf-entries-list-id').value;
+  const search = document.getElementById('cf-entries-search').value;
+  const params = new URLSearchParams({ page: cfEntriesPage, limit: cfEntriesLimit });
+  if (search) params.set('search', search);
+  const {data} = await api(`/channel-filters/${id}/entries?${params}`);
+  const tbody = document.getElementById('cf-entries-body');
+  tbody.innerHTML = '';
+  const rows = data.entries || [];
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚫</div><p>Aucune chaîne masquée</p></div></td></tr>`;
+  } else {
+    rows.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="mono">${e.channel_id || '—'}</td><td class="mono">${e.tvg_id || '—'}</td><td class="name">${e.name || '—'}</td><td style="font-size:.78rem;color:var(--text3)">${e.source_status || '—'}</td><td><button class="btn btn-danger btn-xs" onclick="deleteFilterEntry(${e.id})">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  const pg = document.getElementById('cf-entries-pagination');
+  pg.innerHTML = `<span class="page-info">Page ${data.page||1} / ${data.pages||1} — ${data.total||0} résultats</span>`;
+  if ((data.page||1) > 1) pg.innerHTML += `<button class="btn btn-ghost btn-sm" onclick="cfEntriesPage--;loadFilterListEntries()">← Précédent</button>`;
+  if ((data.page||1) < (data.pages||1)) pg.innerHTML += `<button class="btn btn-ghost btn-sm" onclick="cfEntriesPage++;loadFilterListEntries()">Suivant →</button>`;
+}
+
+async function deleteFilterEntry(entryId) {
+  const id = document.getElementById('cf-entries-list-id').value;
+  const {ok} = await api(`/channel-filters/${id}/entries/${entryId}`, 'DELETE');
+  if (ok) { toast('Chaîne supprimée', 'info'); loadFilterListEntries(); loadChannelFilters(); }
+}
+
+async function clearFilterList() {
+  const id = document.getElementById('cf-entries-list-id').value;
+  if (!confirm('Vider entièrement cette liste ?')) return;
+  const {ok} = await api(`/channel-filters/${id}/clear`, 'POST');
+  if (ok) { toast('Liste vidée', 'info'); loadFilterListEntries(); loadChannelFilters(); }
 }
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>

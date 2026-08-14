@@ -89,11 +89,44 @@ function initDB() {
       updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS channel_filter_lists (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_key      TEXT    NOT NULL UNIQUE,
+      name          TEXT    NOT NULL,
+      category      TEXT    NOT NULL,
+      enabled       INTEGER NOT NULL DEFAULT 1,
+      version       INTEGER NOT NULL DEFAULT 0,
+      hidden_count  INTEGER NOT NULL DEFAULT 0,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS channel_filter_entries (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id       INTEGER NOT NULL REFERENCES channel_filter_lists(id) ON DELETE CASCADE,
+      channel_id    TEXT    DEFAULT NULL,
+      tvg_id        TEXT    DEFAULT NULL,
+      name          TEXT    DEFAULT NULL,
+      match_key     TEXT    NOT NULL,
+      source_status TEXT    DEFAULT NULL,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS channel_filter_settings (
+      id             INTEGER PRIMARY KEY CHECK (id = 1),
+      enabled        INTEGER NOT NULL DEFAULT 1,
+      global_version INTEGER NOT NULL DEFAULT 0,
+      updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_devices_mac     ON devices(mac_address);
     CREATE INDEX IF NOT EXISTS idx_devices_uuid    ON devices(device_uuid);
     CREATE INDEX IF NOT EXISTS idx_devices_status  ON devices(status);
     CREATE INDEX IF NOT EXISTS idx_sessions_device ON sessions(device_id, is_active);
     CREATE INDEX IF NOT EXISTS idx_tokens_token    ON access_tokens(token);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cf_entries_list_matchkey ON channel_filter_entries(list_id, match_key);
+    CREATE INDEX IF NOT EXISTS idx_cf_entries_list ON channel_filter_entries(list_id);
+    CREATE INDEX IF NOT EXISTS idx_cf_lists_enabled ON channel_filter_lists(enabled);
   `);
 
   const exists = db.prepare('SELECT id FROM admins WHERE username = ?').get('admin');
@@ -102,6 +135,11 @@ function initDB() {
     const hash = bcrypt.hashSync(pwd, 12);
     db.prepare(`INSERT INTO admins (username, password_hash, role) VALUES ('admin', ?, 'superadmin')`).run(hash);
     console.log('Admin créé → user: admin | pass:', pwd);
+  }
+
+  const cfSettings = db.prepare('SELECT id FROM channel_filter_settings WHERE id = 1').get();
+  if (!cfSettings) {
+    db.prepare('INSERT INTO channel_filter_settings (id, enabled, global_version) VALUES (1, 1, 0)').run();
   }
 }
 

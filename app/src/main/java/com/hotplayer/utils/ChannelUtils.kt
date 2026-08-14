@@ -96,4 +96,23 @@ object ChannelUtils {
         }
         return listOf(allLabel to channels.size) + counts.map { (k, v) -> k to v }
     }
+
+    private val DIACRITICS_REGEX = Regex("\\p{Mn}+")
+    private val NON_ALNUM_SPACE_REGEX = Regex("[^a-z0-9\\s]")
+    private val MULTI_SPACE_REGEX = Regex("\\s+")
+
+    // Doit produire des résultats identiques à normalizeName() côté backend
+    // (backend/backend/helpers/normalizeName.js) — même algorithme des deux côtés,
+    // sinon le matching des chaînes masquées échoue silencieusement.
+    fun normalizeName(input: String?): String {
+        if (input.isNullOrBlank()) return ""
+        val decomposed = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFKD)
+        val stripped = DIACRITICS_REGEX.replace(decomposed, "")
+        return stripped.lowercase()
+            .replace(NON_ALNUM_SPACE_REGEX, "")
+            .replace(MULTI_SPACE_REGEX, " ")
+            .trim()
+    }
+
+    fun normalizeTvgId(input: String?): String = input?.trim()?.lowercase() ?: ""
 }

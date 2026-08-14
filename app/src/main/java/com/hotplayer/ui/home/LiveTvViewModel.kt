@@ -2,6 +2,8 @@ package com.hotplayer.ui.home
 
 import android.util.Log
 import androidx.lifecycle.*
+import com.hotplayer.data.filter.ChannelFilterRepository
+import com.hotplayer.data.filter.ChannelVisibilityFilter
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
@@ -13,7 +15,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
+class LiveTvViewModel(
+    private val repo: SessionRepository,
+    private val filterRepo: ChannelFilterRepository
+) : ViewModel() {
 
     companion object {
         private const val TAG = "LiveTvVM"
@@ -39,6 +44,10 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
     var hideBe    = false
     var hideAdult = false
 
+    // Backend-driven "hidden channels" filter — fail-open (see ChannelVisibilityFilter),
+    // never blocks display: starts as PASSTHROUGH, refined from local cache then network.
+    private var visibilityFilter: ChannelVisibilityFilter = ChannelVisibilityFilter.PASSTHROUGH
+
     // Per-category pre-sorted channel lists. Key = group name; "" = Tous.
     // Built once on Dispatchers.Default after load → filterByCategory becomes O(1).
     private var channelsByGroup: Map<String, List<Channel>> = emptyMap()
@@ -55,6 +64,15 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
 
     fun load(forceRefresh: Boolean = false) = viewModelScope.launch {
         currentCat = "Tous"
+
+        // Last known-good visibility filter, applied synchronously before the first frame —
+        // fail-open to PASSTHROUGH (show everything) on any cache-read/parse failure.
+        visibilityFilter = try {
+            withContext(Dispatchers.IO) { ChannelVisibilityFilter.from(filterRepo.loadCachedConfigOrNull()) }
+        } catch (_: Throwable) {
+            ChannelVisibilityFilter.PASSTHROUGH
+        }
+        launchFilterConfigRefresh()
 
         // Cache-first: show local data instantly, without waiting on any network round-trip —
         // not even the one to refresh credentials. A weak/slow connection must never delay the
@@ -121,12 +139,39 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
     // whatever is currently displayed stays up until (and unless) the refresh succeeds.
     fun refreshNow() = launchBackgroundRefresh()
 
+    // Best-effort background check of the backend's hidden-channels config. Never blocks
+    // display, never touches State.Loading/State.Error — a failure here just leaves the
+    // last known-good visibilityFilter (or PASSTHROUGH) in effect (see ChannelVisibilityFilter).
+    private fun launchFilterConfigRefresh() {
+        viewModelScope.launch {
+            try {
+                val fresh = filterRepo.refreshFromNetwork() ?: return@launch
+                applyVisibilityFilterAndRefreshUi(ChannelVisibilityFilter.from(fresh))
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private suspend fun applyVisibilityFilterAndRefreshUi(newFilter: ChannelVisibilityFilter) {
+        visibilityFilter = newFilter
+        if (allChannels.isEmpty()) return
+        withContext(Dispatchers.Default) { buildIndex(allChannels) }
+        val prevUrl = currentChannel?.url
+        displayed = computeVisible(currentCat)
+        _state.value = State.Ready(displayed, visibleCats(), isFromRefresh = true)
+        if (prevUrl != null) {
+            val idx = displayed.indexOfFirst { it.url == prevUrl }
+            if (idx >= 0) _index.value = idx
+        }
+    }
+
     // ── Index builder (Dispatchers.Default — never on main thread) ─────────────
     // Sorts every category list ONCE. filterByCategory becomes a HashMap lookup.
 
     private fun buildIndex(channels: List<Channel>) {
         val t0 = System.currentTimeMillis()
-        // Ordre playlist source — aucun tri appliqué sur les chaînes ni les catégories
+        // Ordre playlist source — aucun tri appliqué sur les chaînes ni les catégories.
+        // channelsByGroup reste indexé sur les données SOURCE, jamais modifiées par le
+        // filtre de visibilité (celui-ci n'agit qu'en aval, dans computeVisible()).
         val byGroup = channels.groupBy { it.group ?: "" }
         channelsByGroup = buildMap {
             put("", channels)                                // "" = Tous, ordre original
@@ -134,20 +179,38 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
                 if (g.isNotEmpty()) put(g, list)
             }
         }
-        prebuiltCats = ChannelUtils.buildCatsInOrder(channels, "Tous")
-        Log.d(TAG, "buildIndex: ${channels.size} ch → ${channelsByGroup.size} groups in ${System.currentTimeMillis() - t0}ms")
+        // Catégories/compteurs calculés après filtre de visibilité : une catégorie entièrement
+        // masquée n'a alors plus aucune chaîne dans visibleChannels et disparaît naturellement
+        // de prebuiltCats — aucune logique d'exclusion supplémentaire n'est nécessaire.
+        val visibleChannels = visibilityFilter.apply(channels)
+        prebuiltCats = ChannelUtils.buildCatsInOrder(visibleChannels, "Tous")
+        Log.d(TAG, "buildIndex: ${channels.size} ch (${visibleChannels.size} visible) → ${channelsByGroup.size} groups in ${System.currentTimeMillis() - t0}ms")
     }
 
     // ── Filter — O(1) HashMap lookup, safe to call synchronously on main thread ─
+    // Single source of truth for the display pipeline: applyFilter() and search() both
+    // route through this function so the filter chain (hideFhd/hideBe/hideAdult, the backend
+    // visibility filter, and the free-text query) is never duplicated.
+
+    private fun computeVisible(cat: String): List<Channel> {
+        val key = if (cat == "Tous") "" else cat
+        var list = channelsByGroup[key] ?: emptyList()
+        if (hideFhd)   list = list.filter { !it.name.contains("FHD", ignoreCase = true) }
+        if (hideBe)    list = list.filter { it.group?.contains("|BE|", ignoreCase = true) != true }
+        if (hideAdult) list = list.filter { !ChannelUtils.isAdultCategory(it.group ?: "") }
+        list = visibilityFilter.apply(list)
+        if (currentQuery.isNotEmpty()) {
+            list = list.filter {
+                it.name.contains(currentQuery, ignoreCase = true) ||
+                it.group?.contains(currentQuery, ignoreCase = true) == true
+            }
+        }
+        return list
+    }
 
     private fun applyFilter(cat: String, isRefresh: Boolean = false) {
         val t0  = System.currentTimeMillis()
-        val key = if (cat == "Tous") "" else cat
-        var raw = channelsByGroup[key] ?: emptyList()
-        if (hideFhd)   raw = raw.filter { !it.name.contains("FHD", ignoreCase = true) }
-        if (hideBe)    raw = raw.filter { it.group?.contains("|BE|", ignoreCase = true) != true }
-        if (hideAdult) raw = raw.filter { !ChannelUtils.isAdultCategory(it.group ?: "") }
-        displayed = raw
+        displayed = computeVisible(cat)
         val dt = System.currentTimeMillis() - t0
         Log.d(TAG, "applyFilter: cat='$cat' → ${displayed.size} ch in ${dt}ms")
         _state.value = State.Ready(displayed, visibleCats(), isRefresh)
@@ -208,20 +271,8 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
 
     // Bug #1 + #2: search must apply active filters and use visibleCats()
     fun search(query: String) {
-        val q = query.trim()
-        currentQuery = q
-        if (q.isEmpty()) { applyFilter(currentCat); return }
-        val key  = if (currentCat == "Tous") "" else currentCat
-        var base = channelsByGroup[key] ?: emptyList()
-        if (hideFhd)   base = base.filter { !it.name.contains("FHD", ignoreCase = true) }
-        if (hideBe)    base = base.filter { it.group?.contains("|BE|", ignoreCase = true) != true }
-        if (hideAdult) base = base.filter { !ChannelUtils.isAdultCategory(it.group ?: "") }
-        displayed = base.filter {
-            it.name.contains(q, ignoreCase = true) ||
-            it.group?.contains(q, ignoreCase = true) == true
-        }
-        _state.value = State.Ready(displayed, visibleCats())
-        _index.value = if (displayed.isNotEmpty()) 0 else -1
+        currentQuery = query.trim()
+        applyFilter(currentCat)
     }
 
     fun setIndex(idx: Int) {
@@ -288,18 +339,9 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
             withContext(Dispatchers.Default) { buildIndex(channels) }
             allChannels = channels
             val prevUrl = currentChannel?.url
-            applyFilter(currentCat, isRefresh = true)
-            if (currentQuery.isNotEmpty()) {
-                displayed = displayed.filter {
-                    it.name.contains(currentQuery, ignoreCase = true) ||
-                    it.group?.contains(currentQuery, ignoreCase = true) == true
-                }
-                _state.value = State.Ready(displayed, visibleCats(), isFromRefresh = true)
-                if (prevUrl != null) {
-                    val idx = displayed.indexOfFirst { it.url == prevUrl }
-                    if (idx >= 0) _index.value = idx
-                }
-            } else if (prevUrl != null) {
+            displayed = computeVisible(currentCat)
+            _state.value = State.Ready(displayed, visibleCats(), isFromRefresh = true)
+            if (prevUrl != null) {
                 val idx = displayed.indexOfFirst { it.url == prevUrl }
                 if (idx >= 0) _index.value = idx
             }
@@ -311,7 +353,10 @@ class LiveTvViewModel(private val repo: SessionRepository) : ViewModel() {
             ?: Regex("""/(\d+)\z""").find(url)?.groupValues?.get(1)
 }
 
-class LiveTvViewModelFactory(private val repo: SessionRepository) : ViewModelProvider.Factory {
+class LiveTvViewModelFactory(
+    private val repo: SessionRepository,
+    private val filterRepo: ChannelFilterRepository
+) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(c: Class<T>): T = LiveTvViewModel(repo) as T
+    override fun <T : ViewModel> create(c: Class<T>): T = LiveTvViewModel(repo, filterRepo) as T
 }
