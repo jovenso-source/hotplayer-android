@@ -364,9 +364,14 @@ class LiveChannelAdapter(
         (h.itemView as? ViewGroup)?.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
         h.itemView.setOnFocusChangeListener { _, hasFocus ->
+            // bindingAdapterPosition can point past the end of `items` right after
+            // notifyDataSetChanged() (e.g. a Channel Filter refresh shrinking the list) until
+            // RecyclerView's next layout pass catches up — a D-pad focus event landing on a
+            // not-yet-recycled ViewHolder in that window must never index `items` unguarded
+            // (see RecyclerView.ViewHolder#getBindingAdapterPosition docs). getOrNull, not [p].
             val p = h.bindingAdapterPosition
             if (hasFocus && p != RecyclerView.NO_POSITION) {
-                onChFocus(items[p], p)
+                items.getOrNull(p)?.let { onChFocus(it, p) }
             }
             h.itemView.animate()
                 .scaleX(if (hasFocus) 1.02f else 1f)
@@ -376,7 +381,9 @@ class LiveChannelAdapter(
 
         h.itemView.setOnClickListener {
             val p = h.bindingAdapterPosition
-            if (p != RecyclerView.NO_POSITION) onChClick(items[p], p)
+            if (p != RecyclerView.NO_POSITION) {
+                items.getOrNull(p)?.let { onChClick(it, p) }
+            }
         }
     }
 
