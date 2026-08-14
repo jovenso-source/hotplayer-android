@@ -115,4 +115,16 @@ object ChannelUtils {
     }
 
     fun normalizeTvgId(input: String?): String = input?.trim()?.lowercase() ?: ""
+
+    // Keeps the current selection stable across a filter/playlist refresh: same channel if
+    // still present, otherwise clamps to a valid index (0, or -1 if the list is now empty)
+    // instead of leaving a stale/out-of-bounds index pointing at the wrong channel.
+    fun resolveSelectionIndex(channels: List<Channel>, prevUrl: String?): Int {
+        val idx = if (prevUrl != null) channels.indexOfFirst { it.url == prevUrl } else -1
+        return when {
+            idx >= 0 -> idx
+            channels.isNotEmpty() -> 0
+            else -> -1
+        }
+    }
 }

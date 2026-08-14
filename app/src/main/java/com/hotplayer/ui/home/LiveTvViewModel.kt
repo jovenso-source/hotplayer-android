@@ -12,6 +12,7 @@ import com.hotplayer.data.repository.SessionRepository.PlaylistCredentials
 import com.hotplayer.utils.ChannelUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -22,6 +23,12 @@ class LiveTvViewModel(
 
     companion object {
         private const val TAG = "LiveTvVM"
+
+        // Decoupled from the playlist's own refresh cadence (SessionRepository's 1h stale
+        // threshold, untouched) — the filter payload is tiny, so it can be checked far more
+        // often without the risk/cost that governs full playlist reloads.
+        private const val MIN_FILTER_CHECK_INTERVAL_MS = 12 * 60 * 1000L   // Live TV re-entry gate: 10-15min
+        private const val PERIODIC_FILTER_CHECK_INTERVAL_MS = 45 * 60 * 1000L // prolonged session: 30-60min
     }
 
     sealed class State {
@@ -59,6 +66,7 @@ class LiveTvViewModel(
     private var currentQuery = ""
 
     private var epgJob: Job? = null
+    private var filterPeriodicJob: Job? = null
 
     // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -73,6 +81,7 @@ class LiveTvViewModel(
             ChannelVisibilityFilter.PASSTHROUGH
         }
         launchFilterConfigRefresh()
+        launchPeriodicFilterCheck()
 
         // Cache-first: show local data instantly, without waiting on any network round-trip —
         // not even the one to refresh credentials. A weak/slow connection must never delay the
@@ -139,18 +148,45 @@ class LiveTvViewModel(
     // whatever is currently displayed stays up until (and unless) the refresh succeeds.
     fun refreshNow() = launchBackgroundRefresh()
 
-    // Best-effort background check of the backend's hidden-channels config. Never blocks
-    // display, never touches State.Loading/State.Error — a failure here just leaves the
-    // last known-good visibilityFilter (or PASSTHROUGH) in effect (see ChannelVisibilityFilter).
+    // Best-effort background check of the backend's hidden-channels config, throttled to at
+    // most once per MIN_FILTER_CHECK_INTERVAL_MS per process (refreshIfDue's first-call-always
+    // exemption means this behaves as "always check" right after app/session launch, then backs
+    // off on subsequent Live TV re-entries — see ChannelFilterRepository.refreshIfDue()).
+    // Never blocks display, never touches State.Loading/State.Error — a failure or a throttled
+    // skip both just leave the last known-good visibilityFilter (or PASSTHROUGH) in effect.
     private fun launchFilterConfigRefresh() {
         viewModelScope.launch {
             try {
-                val fresh = filterRepo.refreshFromNetwork() ?: return@launch
+                val fresh = filterRepo.refreshIfDue(MIN_FILTER_CHECK_INTERVAL_MS) ?: return@launch
                 applyVisibilityFilterAndRefreshUi(ChannelVisibilityFilter.from(fresh))
             } catch (_: Throwable) {}
         }
     }
 
+    // Lightweight background re-check while Live TV stays open for a long session — completely
+    // independent of the playlist's own refresh cadence (SessionRepository, untouched). Started
+    // once per ViewModel instance; auto-cancelled with viewModelScope when the screen is torn
+    // down, never a stray long-lived timer. Deliberately NOT aggressive polling: one conditional
+    // GET every 30-60min, most of which resolve to a cheap 304 (see refreshFromNetwork()).
+    private fun launchPeriodicFilterCheck() {
+        if (filterPeriodicJob != null) return
+        filterPeriodicJob = viewModelScope.launch {
+            while (true) {
+                delay(PERIODIC_FILTER_CHECK_INTERVAL_MS)
+                try {
+                    val fresh = filterRepo.refreshIfDue(MIN_FILTER_CHECK_INTERVAL_MS) ?: continue
+                    applyVisibilityFilterAndRefreshUi(ChannelVisibilityFilter.from(fresh))
+                } catch (_: Throwable) {}
+            }
+        }
+    }
+
+    // Atomic swap: visibilityFilter is only ever reassigned once a fetch has fully succeeded
+    // and parsed — a failed/throttled/304 refresh (see callers) never reaches this function, so
+    // the previous filter stays active until a fully-valid replacement is ready. Only touches
+    // LiveData (state/index) — never LiveTvActivity, never ExoPlayer/playerMgr, so a channel
+    // becoming hidden while it's actively playing (preview or fullscreen PlayerActivity) never
+    // interrupts playback; it only stops appearing in the next-computed visible list.
     private suspend fun applyVisibilityFilterAndRefreshUi(newFilter: ChannelVisibilityFilter) {
         visibilityFilter = newFilter
         if (allChannels.isEmpty()) return
@@ -158,10 +194,14 @@ class LiveTvViewModel(
         val prevUrl = currentChannel?.url
         displayed = computeVisible(currentCat)
         _state.value = State.Ready(displayed, visibleCats(), isFromRefresh = true)
-        if (prevUrl != null) {
-            val idx = displayed.indexOfFirst { it.url == prevUrl }
-            if (idx >= 0) _index.value = idx
-        }
+        restoreSelectionOrClamp(prevUrl)
+    }
+
+    // Keeps the current selection if it's still visible; otherwise clamps to a valid index
+    // (0, or -1 if the list is now empty) instead of leaving a stale/out-of-bounds _index that
+    // would make currentChannel resolve to the wrong channel after a filter/playlist refresh.
+    private fun restoreSelectionOrClamp(prevUrl: String?) {
+        _index.value = ChannelUtils.resolveSelectionIndex(displayed, prevUrl)
     }
 
     // ── Index builder (Dispatchers.Default — never on main thread) ─────────────
@@ -341,10 +381,7 @@ class LiveTvViewModel(
             val prevUrl = currentChannel?.url
             displayed = computeVisible(currentCat)
             _state.value = State.Ready(displayed, visibleCats(), isFromRefresh = true)
-            if (prevUrl != null) {
-                val idx = displayed.indexOfFirst { it.url == prevUrl }
-                if (idx >= 0) _index.value = idx
-            }
+            restoreSelectionOrClamp(prevUrl)
         }
     }
 
