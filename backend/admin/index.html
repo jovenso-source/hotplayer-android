@@ -889,7 +889,7 @@ function handleCfImportFile(input) {
     document.getElementById('cf-import-btn').textContent = 'Importer';
     try {
       const parsed = JSON.parse(e.target.result);
-      const entries = Array.isArray(parsed) ? parsed : (parsed.entries || parsed.channels);
+      const entries = Array.isArray(parsed) ? parsed : (parsed.entries || parsed.channels || parsed.hidden_candidates || parsed.candidates || parsed.items || parsed.data || parsed.results);
       if (!Array.isArray(entries) || !entries.length) throw new Error('Aucune entrée trouvée (attendu: un tableau ou {"entries":[...]})');
       cfImportEntries = entries;
       preview.classList.remove('hidden');

@@ -119,6 +119,41 @@ test('import tolère le format {channels:[...]} donné en exemple dans la spec (
   assert.equal(data.created, 1);
 });
 
+test('import tolère le format HotPlayer Channel Scanner ({hidden_candidates:[...]}, id préfixé)', async () => {
+  const token = await loginAdmin();
+  const list = await createList(token, 'Scanner Format Test', 'France');
+  const { status, data } = await req(`/api/admin/channel-filters/${list.id}/import`, {
+    method: 'POST', token,
+    body: {
+      generated_at: '2026-08-14T04:26:10Z',
+      hidden_candidates: [
+        { id: 'hash:b42819f70603f465b03d2c6b', name: '#### GÉNÉRALE ####', status: 'INACTIVE' },
+        { id: 'tvg:MaisonEtTravauxTV.fr', name: '|FR| MAISON &amp; TRAVAUX FHD', status: 'INACTIVE' },
+        { id: 'tvg:GONGMAX', name: '|FR| GONG MAX FHD', status: 'INACTIVE' },
+      ],
+    },
+  });
+  assert.equal(status, 200);
+  assert.equal(data.created, 3);
+
+  const entries = await req(`/api/admin/channel-filters/${list.id}/entries`, { token });
+  const maison = entries.data.entries.find(e => e.tvg_id === 'MaisonEtTravauxTV.fr');
+  assert.ok(maison, 'entrée tvg:MaisonEtTravauxTV.fr doit être stockée avec tvg_id (pas channel_id)');
+  assert.equal(maison.channel_id, null);
+  assert.equal(maison.name, '|FR| MAISON & TRAVAUX FHD', 'entité HTML &amp; doit être décodée en &');
+
+  const hashEntry = entries.data.entries.find(e => e.name.includes('GÉNÉRALE'));
+  assert.ok(hashEntry, 'entrée hash: doit quand même être stockée (fallback nom)');
+  assert.equal(hashEntry.channel_id, null, 'id "hash:..." ne doit jamais être utilisé comme channel_id');
+  assert.equal(hashEntry.tvg_id, null);
+
+  const pub = await req('/api/channel-filters');
+  const l = pub.data.lists.find(x => x.id === list.id);
+  assert.ok(l.hidden_channels.includes('tvg:maisonettravauxtv.fr'));
+  assert.ok(l.hidden_channels.includes('tvg:gongmax'));
+  assert.ok(!l.hidden_channels.some(k => k.startsWith('id:hash:')), 'aucune clé "id:hash:..." ne doit jamais être émise');
+});
+
 test('import tolère aussi un tableau JSON brut sans wrapper', async () => {
   const token = await loginAdmin();
   const list = await createList(token, 'Format Array Test', 'X');

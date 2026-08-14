@@ -1,9 +1,42 @@
 const router = require('express').Router();
 const { db } = require('../config/database');
 const { requireAdmin } = require('../middleware/auth');
-const { normalizeName, normalizeTvgId } = require('../helpers/normalizeName');
+const { normalizeName, normalizeTvgId, decodeHtmlEntities } = require('../helpers/normalizeName');
 
 const ANOMALY_FACTOR = 1.5;
+
+// Certains exports tiers (ex: scanners de chaînes) livrent un seul champ "id" préfixé
+// par type plutôt que des champs séparés channel_id/tvg_id, ex: "tvg:france2.fr" ou
+// "hash:b42819f70603f465b03d2c6b". "hash:" est un identifiant local à l'outil source,
+// non reproductible côté Android — il ne doit jamais être utilisé pour le matching,
+// seul le fallback par nom s'applique alors.
+function parsePrefixedId(raw) {
+  if (raw == null) return {};
+  const s = String(raw).trim();
+  if (!s) return {};
+  const m = s.match(/^([a-zA-Z]+):(.+)$/);
+  if (!m) return { channelId: s };
+  const prefix = m[1].toLowerCase();
+  const value = m[2].trim();
+  if (!value) return {};
+  if (prefix === 'tvg') return { tvgId: value };
+  if (prefix === 'hash') return {};
+  if (prefix === 'id' || prefix === 'stream' || prefix === 'channel') return { channelId: value };
+  return { channelId: s };
+}
+
+// Tolérant aux différentes clés racines rencontrées en pratique : { entries: [...] }
+// (format admin interne), { channels: [...] } (exemple de la spec), { hidden_candidates:
+// [...] } (export HotPlayer Channel Scanner), ou un tableau JSON brut.
+function extractEntriesArray(body) {
+  if (Array.isArray(body)) return body;
+  if (!body || typeof body !== 'object') return null;
+  const keys = ['entries', 'channels', 'hidden_candidates', 'candidates', 'items', 'data', 'results'];
+  for (const key of keys) {
+    if (Array.isArray(body[key])) return body[key];
+  }
+  return null;
+}
 
 function slugify(name) {
   const base = normalizeName(name).replace(/\s+/g, '-');
@@ -174,12 +207,7 @@ router.post('/:id/import', requireAdmin, (req, res) => {
   if (!list) return;
 
   const body = req.body || {};
-  // Tolérant au format d'export réel du fournisseur : { entries: [...] } (format admin
-  // interne), { channels: [...] } (format donné en exemple dans la spec), ou un tableau brut.
-  const entries = Array.isArray(body) ? body
-    : Array.isArray(body.entries) ? body.entries
-    : Array.isArray(body.channels) ? body.channels
-    : null;
+  const entries = extractEntriesArray(body);
   const confirm = body.confirm;
   if (!Array.isArray(entries) || !entries.length) {
     return res.status(400).json({ error: 'Aucune entrée fournie ou JSON invalide.' });
@@ -195,9 +223,15 @@ router.post('/:id/import', requireAdmin, (req, res) => {
       errors.push({ row: index, reason: 'Entrée invalide (pas un objet).' });
       return;
     }
-    const channelId = row.channel_id ?? row.stream_id ?? row.id ?? null;
-    const tvgId     = row.tvg_id ?? row['tvg-id'] ?? null;
-    const name      = row.name ?? row.channel_name ?? row.title ?? null;
+    let channelId = row.channel_id ?? row.stream_id ?? null;
+    let tvgId     = row.tvg_id ?? row['tvg-id'] ?? null;
+    if (channelId == null && tvgId == null && row.id != null) {
+      const parsed = parsePrefixedId(row.id);
+      channelId = parsed.channelId ?? null;
+      tvgId     = parsed.tvgId ?? null;
+    }
+    const nameRaw   = row.name ?? row.channel_name ?? row.title ?? null;
+    const name      = nameRaw != null ? decodeHtmlEntities(String(nameRaw)) : null;
     const status    = row.status ?? null;
     const action    = row.action ?? null;
 
