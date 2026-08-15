@@ -6,6 +6,8 @@ import com.google.gson.Gson
 import com.hotplayer.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -53,6 +55,14 @@ class ChannelFilterRepository @Inject constructor(
     // launch, throttle afterwards" behavior without needing a separate app-launch code path.
     @Volatile private var lastCheckedAtMs: Long = 0L
 
+    // Ensures at most one Channel Filters HTTP call is ever in flight, regardless of how many
+    // callers ask concurrently (Live TV entry bypass, periodic loop, a future manual refresh...).
+    // A second concurrent caller simply waits for the first to finish rather than firing its own
+    // request — cheap (suspending, not thread-blocking) and, as a side effect, the waiter's own
+    // subsequent check naturally sees the ETag the first call just saved, so it's likely to
+    // short-circuit to a 304 rather than truly duplicating work.
+    private val refreshMutex = Mutex()
+
     fun loadCachedConfigOrNull(): ChannelFilterResponse? = try {
         if (!cacheFile.exists()) null
         else gson.fromJson(cacheFile.readText(), ChannelFilterResponse::class.java)
@@ -79,30 +89,32 @@ class ChannelFilterRepository @Inject constructor(
     // no filter rebuild. Fail-open on every path: any failure (timeout, HTTP error, invalid
     // JSON, corrupt response) returns null without ever touching the existing cache/ETag.
     suspend fun refreshFromNetwork(): ChannelFilterResponse? = withContext(Dispatchers.IO) {
-        try {
-            val savedEtag = if (cacheFile.exists()) {
-                try { etagFile.takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null } } catch (_: Throwable) { null }
-            } else null
+        refreshMutex.withLock {
+            try {
+                val savedEtag = if (cacheFile.exists()) {
+                    try { etagFile.takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null } } catch (_: Throwable) { null }
+                } else null
 
-            val reqBuilder = Request.Builder().url(CONFIG_URL)
-            if (savedEtag != null) reqBuilder.header("If-None-Match", savedEtag)
+                val reqBuilder = Request.Builder().url(CONFIG_URL)
+                if (savedEtag != null) reqBuilder.header("If-None-Match", savedEtag)
 
-            httpClient.newCall(reqBuilder.build()).execute().use { response ->
-                if (response.code == 304) return@withContext null
-                if (!response.isSuccessful) return@withContext null
-                val body = response.body?.string() ?: return@withContext null
-                val parsed = gson.fromJson(body, ChannelFilterResponse::class.java) ?: return@withContext null
-                try {
-                    cacheFile.writeText(gson.toJson(parsed))
-                    response.header("ETag")?.let { etagFile.writeText(it) }
-                } catch (e: Throwable) {
-                    Log.w(TAG, "Cache save failed: ${e.message}")
+                httpClient.newCall(reqBuilder.build()).execute().use { response ->
+                    if (response.code == 304) return@withLock null
+                    if (!response.isSuccessful) return@withLock null
+                    val body = response.body?.string() ?: return@withLock null
+                    val parsed = gson.fromJson(body, ChannelFilterResponse::class.java) ?: return@withLock null
+                    try {
+                        cacheFile.writeText(gson.toJson(parsed))
+                        response.header("ETag")?.let { etagFile.writeText(it) }
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "Cache save failed: ${e.message}")
+                    }
+                    parsed
                 }
-                parsed
+            } catch (e: Throwable) {
+                Log.w(TAG, "Refresh failed: ${e.message}")
+                null
             }
-        } catch (e: Throwable) {
-            Log.w(TAG, "Refresh failed: ${e.message}")
-            null
         }
     }
 }

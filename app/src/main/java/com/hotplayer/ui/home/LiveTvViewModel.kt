@@ -148,16 +148,18 @@ class LiveTvViewModel(
     // whatever is currently displayed stays up until (and unless) the refresh succeeds.
     fun refreshNow() = launchBackgroundRefresh()
 
-    // Best-effort background check of the backend's hidden-channels config, throttled to at
-    // most once per MIN_FILTER_CHECK_INTERVAL_MS per process (refreshIfDue's first-call-always
-    // exemption means this behaves as "always check" right after app/session launch, then backs
-    // off on subsequent Live TV re-entries — see ChannelFilterRepository.refreshIfDue()).
-    // Never blocks display, never touches State.Loading/State.Error — a failure or a throttled
-    // skip both just leave the last known-good visibilityFilter (or PASSTHROUGH) in effect.
+    // Best-effort background check of the backend's hidden-channels config, run on EVERY Live TV
+    // entry (throttle intentionally bypassed here — see ChannelFilterRepository.refreshMutex for
+    // why this stays cheap: ETag/If-None-Match makes the common case a small 304, and the mutex
+    // guarantees at most one such request is ever in flight even if the user bounces in/out of
+    // Live TV rapidly). The 12min throttle (refreshIfDue) still governs the periodic in-session
+    // loop below — only this entry-point check is unconditional.
+    // Never blocks display, never touches State.Loading/State.Error — a failure here just leaves
+    // the last known-good visibilityFilter (or PASSTHROUGH) in effect.
     private fun launchFilterConfigRefresh() {
         viewModelScope.launch {
             try {
-                val fresh = filterRepo.refreshIfDue(MIN_FILTER_CHECK_INTERVAL_MS) ?: return@launch
+                val fresh = filterRepo.refreshFromNetwork() ?: return@launch
                 applyVisibilityFilterAndRefreshUi(ChannelVisibilityFilter.from(fresh))
             } catch (_: Throwable) {}
         }
