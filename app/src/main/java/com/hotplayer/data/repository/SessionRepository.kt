@@ -17,6 +17,8 @@ import com.hotplayer.data.api.XtreamLiveStream
 import com.hotplayer.data.model.Channel
 import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
+import com.hotplayer.data.model.PlaylistReloadProgress
+import com.hotplayer.data.model.PlaylistReloadStep
 import com.hotplayer.data.model.RenewalConfig
 import com.hotplayer.ui.theme.ThemeConfig
 import com.hotplayer.BuildConfig
@@ -24,6 +26,7 @@ import com.hotplayer.data.api.ActivateRequest
 import com.hotplayer.data.api.MigrateRequest
 import com.hotplayer.security.DeviceIdentityManager
 import com.hotplayer.utils.ChannelUtils
+import com.hotplayer.utils.DownloadProgressThrottle
 import com.hotplayer.utils.MacAddressHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -635,21 +638,80 @@ class SessionRepository @Inject constructor(
 
     fun clearChannelCache() { try { cacheFile.delete() } catch (_: Exception) {} }
 
-    // Clears cache, contacts the server, saves fresh data. Returns channel count or -1 on failure.
-    suspend fun reloadPlaylist(): Int {
-        clearChannelCache()
-        return try {
+    // Contacts the server, validates the result, THEN replaces the cache. Returns channel count
+    // or -1 on failure. Deliberately never calls clearChannelCache() up front: the old cache file
+    // is only ever touched by saveChannelCache() (a single atomic writeText — see below), and only
+    // once the new playlist has downloaded, parsed, and proven non-empty. A failed/interrupted
+    // reload (network error, empty response, cancelled coroutine) therefore always leaves the
+    // previous valid playlist completely untouched on disk.
+    //
+    // [onProgress] is optional and defaults to a no-op — existing/other callers are unaffected.
+    // Deliberately does NOT reuse/modify loadChannels()/loadChannelsXtream()/parseM3U() (Live TV's
+    // own data path) for the Xtream case or for parsing: those stay byte-for-byte untouched, and
+    // this function reports PARSING/Xtream DOWNLOADING as indeterminate rather than instrumenting
+    // shared code just to manufacture a percentage. Only the M3U download — a single large HTTP
+    // response this function fetches itself — gets a real, Content-Length-based fraction.
+    suspend fun reloadPlaylist(onProgress: (PlaylistReloadProgress) -> Unit = {}): Int = withContext(Dispatchers.IO) {
+        try {
             val creds = getPlaylistCredentials()
             val channels: List<Channel> = when (creds) {
-                is PlaylistCredentials.Xtream -> loadChannelsXtream(creds.server, creds.user, creds.pass)
-                is PlaylistCredentials.M3u    -> loadChannels(creds.url).filter { it.type == com.hotplayer.data.model.ChannelType.LIVE }
-                is PlaylistCredentials.None   -> return -1
+                is PlaylistCredentials.Xtream -> {
+                    onProgress(PlaylistReloadProgress(PlaylistReloadStep.DOWNLOADING))
+                    val list = loadChannelsXtream(creds.server, creds.user, creds.pass)
+                    onProgress(PlaylistReloadProgress(PlaylistReloadStep.PARSING))
+                    list
+                }
+                is PlaylistCredentials.M3u -> {
+                    val content = downloadM3uWithProgress(creds.url) { fraction ->
+                        onProgress(PlaylistReloadProgress(PlaylistReloadStep.DOWNLOADING, fraction))
+                    }
+                    onProgress(PlaylistReloadProgress(PlaylistReloadStep.PARSING))
+                    parseM3U(content).filter { it.type == ChannelType.LIVE }
+                }
+                is PlaylistCredentials.None -> return@withContext -1
             }
-            if (channels.isNotEmpty()) saveChannelCache(channels, creds)
+            if (channels.isEmpty()) return@withContext -1
+            onProgress(PlaylistReloadProgress(PlaylistReloadStep.FINALIZING))
+            saveChannelCache(channels, creds)
             channels.size
         } catch (e: Exception) {
             Log.e(TAG, "reloadPlaylist failed: ${e.message}")
             -1
+        }
+    }
+
+    // Isolated from loadChannels() on purpose (see reloadPlaylist() doc) — reads the response
+    // body in chunks instead of one .string() call so real download progress can be reported
+    // against Content-Length. Falls back to a null (indeterminate) fraction whenever the server
+    // doesn't send Content-Length (e.g. chunked transfer-encoding) rather than guessing.
+    private fun downloadM3uWithProgress(url: String, onProgress: (Float?) -> Unit): String {
+        val req = Request.Builder().url(url).build()
+        httpClient.newCall(req).execute().use { response ->
+            val body = response.body ?: return ""
+            val total = body.contentLength()
+            val input = body.byteStream()
+            val buffer = ByteArray(16 * 1024)
+            val output = java.io.ByteArrayOutputStream()
+            var readSoFar = 0L
+            var lastReported = -1f
+            while (true) {
+                val read = input.read(buffer)
+                if (read == -1) break
+                output.write(buffer, 0, read)
+                readSoFar += read
+                if (total > 0) {
+                    val fraction = (readSoFar.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                    // Throttle to ~2% steps so a fast local network doesn't flood the UI with
+                    // dozens of near-identical progress updates for a small file.
+                    if (DownloadProgressThrottle.shouldReport(fraction, lastReported)) {
+                        lastReported = fraction
+                        onProgress(fraction)
+                    }
+                } else {
+                    onProgress(null)
+                }
+            }
+            return output.toString(Charsets.UTF_8.name())
         }
     }
 

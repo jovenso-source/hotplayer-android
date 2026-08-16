@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center">
+
+    <LinearLayout
+        android:layout_width="420dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:background="@drawable/bg_popup_card"
+        android:padding="32dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/tvReloadTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rechargement de la playlist"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#e2e8f0"
+            android:gravity="center"
+            android:layout_marginBottom="20dp"/>
+
+        <!-- In-progress state -->
+        <LinearLayout
+            android:id="@+id/layoutReloadProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:id="@+id/tvReloadStep"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Téléchargement de la playlist..."
+                android:textSize="14sp"
+                android:textColor="#94a3b8"
+                android:gravity="center"
+                android:layout_marginBottom="14dp"/>
+
+            <ProgressBar
+                android:id="@+id/pbReloadDeterminate"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#ff4d00"
+                android:visibility="gone"/>
+
+            <ProgressBar
+                android:id="@+id/pbReloadIndeterminate"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:indeterminate="true"
+                android:indeterminateTint="#ff4d00"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/tvReloadPercent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="12sp"
+                android:textColor="#555a6e"
+                android:gravity="center"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
+
+        <!-- Result state (success or failure) — hidden while in progress -->
+        <LinearLayout
+            android:id="@+id/layoutReloadResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvReloadResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"/>
+
+            <LinearLayout
+                android:id="@+id/layoutReloadActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="20dp">
+
+                <Button
+                    android:id="@+id/btnReloadRetry"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="Réessayer"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#ff4d00"
+                    android:visibility="gone"
+                    android:focusable="true"/>
+
+                <Button
+                    android:id="@+id/btnReloadClose"
+                    android:layout_width="0dp"
+                    android:layout_height="46dp"
+                    android:layout_weight="1"
+                    android:text="Fermer"
+                    android:textSize="13sp"
+                    android:textColor="#94a3b8"
+                    android:backgroundTint="#1a2235"
+                    android:focusable="true"/>
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>
