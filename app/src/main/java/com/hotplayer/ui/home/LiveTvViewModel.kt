@@ -9,6 +9,7 @@ import com.hotplayer.data.model.ChannelType
 import com.hotplayer.data.model.EpgItem
 import com.hotplayer.data.repository.SessionRepository
 import com.hotplayer.data.repository.SessionRepository.PlaylistCredentials
+import com.hotplayer.utils.ChannelQualitySort
 import com.hotplayer.utils.ChannelUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -241,6 +242,9 @@ class LiveTvViewModel(
         if (hideBe)    list = list.filter { it.group?.contains("|BE|", ignoreCase = true) != true }
         if (hideAdult) list = list.filter { !ChannelUtils.isAdultCategory(it.group ?: "") }
         list = visibilityFilter.apply(list)
+        // Display-order only: stable sort by quality tier (SD < HD < FHD < 4K/UHD < unknown).
+        // Never removes/adds a channel — same count in, same count out, see ChannelQualitySort.
+        list = ChannelQualitySort.sortedByQuality(list)
         if (currentQuery.isNotEmpty()) {
             list = list.filter {
                 it.name.contains(currentQuery, ignoreCase = true) ||
